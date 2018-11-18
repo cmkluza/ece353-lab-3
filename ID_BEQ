@@ -1,27 +1,36 @@
-//Static int WorkCycles = 0;      needs to be in main() to be exported to main at the end of sim                  
+//Static int ID_WorkCycles = 0;      needs to be in main() to be exported to main at the end of sim                  
 void ID()
 {
 	Static int BeqTimer = 0;  //holds a timer for BEQ hazard avoidance
-	if(IF_ID_latch.inst_op == BEQ && ID_EX_latch.inst_op != BEQ && ID_EX_Flag == 0)  //If Its a branch, but yet to move forward and EX is ready
+	
+	if(IF_ID_latch.rs != ID_EX_latch.rd &&                             //This looks complicated but It just checks
+	   IF_ID_latch.rt != ID_EX_latch.rd &&                                //that I'm not about to read a reg that is a 
+	   IF_ID_latch.rs != EX_MEM_latch.rd &&                               //destination reg for a instruction further 
+	   IF_ID_latch.rt != EX_MEM_latch.rd &&                               //down the pipe
+	   (IF_ID_latch.rs != MEM_WB_latch.rd && MEM_WB_Flag != 1) &&
+	   (IF_ID_latch.rt != EX_MEM_latch.rd && MEM_WB_Flag != 1))           //If Flag=0 then Write has happened and r/w can happen same cycle
 	{
-			++WorkCycles;                                                    //1 cycle of work
+		if(IF_ID_latch.inst_op == BEQ && ID_EX_latch.inst_op != BEQ && ID_EX_Flag == 0)  //If Its a branch, but yet to move forward and EX is ready
+		{
+			++ID_WorkCycles;                                                    //1 cycle of work
 			ID_EX_Latch = IF_ID_Latch;                                       //Copy to ex recieve latch
 			ID_EX_Latch.rs = Registers[rs]; 
 			ID_EX_Latch.rt = Registers[rt];                                  //fill struct with reg data for ex
 		        ID_EX_Flag = 1;                                                  //Tell EX its a go on the next cycle
 			BeqTimer = n + 1;                                                //Cycles EX reqires to resolve BEQ, could be off - 1 or -2                                    
-	}
-	else if (BeqTimer != 0)   //Its been moved forward but IF is/was waiting on proper PC
-	{
-		if(BeqTimer != 1)
-		{
-			--BeqTimer; 	                                  //keep counting down
 		}
-		else
+		else if (BeqTimer != 0)   //Its been moved forward but IF is/was waiting on proper PC
 		{
-			IF_ID_Flag = 0;    //Program counter is set, so IF can fetch
-                        --BeqTimer;        //Set back to 0 
+			if(BeqTimer != 1)
+			{
+				--BeqTimer; 	                                  //keep counting down
+			}
+			else
+			{
+				IF_ID_Flag = 0;    //Program counter is set, so IF can fetch
+                        	--BeqTimer;        //Set back to 0 
+			}
 		}
-	}
 
-}		
+	}
+	
