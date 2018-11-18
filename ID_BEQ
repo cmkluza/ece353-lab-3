@@ -31,6 +31,6 @@ void ID()
                         	--BeqTimer;        //Set back to 0 
 			}
 		}
-
+		else if(IF_ID_latch.inst_op == add)
 	}
 	
