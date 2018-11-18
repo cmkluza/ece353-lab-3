@@ -20,7 +20,6 @@ enum inst_op {
     MUL,
     SUB,
     SW,
-    NOP,                                      //Added by Kyle for timing purposes when waiting
     HALT // "haltSimulation"
 };
 
