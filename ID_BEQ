@@ -84,6 +84,6 @@ void ID()
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
-			
+		//If none of the above conditions are met other stages are busy or not a valid opcode (wait)
 	}
-	
+	//If theres a RAW hazard do nothing (wait)
