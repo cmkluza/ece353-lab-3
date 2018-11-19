@@ -91,6 +91,11 @@ void ID()
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
+		else if(IF_ID_latch.inst_op == HALT && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+		{
+			ID_EX_latch = IF_ID_latch;                     //Copy it forward
+			ID_EX_Flag = 1;                                //Tell EX that next cycle it can recieve
+		}
 		//If none of the above conditions are met other stages are busy or not a valid opcode (wait)
 	}
 	//If theres a RAW hazard do nothing (wait)
