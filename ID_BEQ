@@ -1,9 +1,9 @@
 //Static int ID_WorkCycles = 0;      needs to be in main() to be exported to main at the end of sim                  
 void ID()
 {
-	Static int BeqTimer = 0;  //holds a timer for BEQ hazard avoidance
+	Static int BeqTimer = 0;                                              //holds a timer for BEQ hazard avoidance
 	
-	if(IF_ID_latch.rs != ID_EX_latch.rd &&                             //This looks complicated but It just checks
+	if(IF_ID_latch.rs != ID_EX_latch.rd &&                                //This looks complicated but It just checks
 	   IF_ID_latch.rt != ID_EX_latch.rd &&                                //that I'm not about to read a reg that is a 
 	   IF_ID_latch.rs != EX_MEM_latch.rd &&                               //destination reg for a instruction further 
 	   IF_ID_latch.rt != EX_MEM_latch.rd &&                               //down the pipe
@@ -48,7 +48,34 @@ void ID()
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
+		else if(IF_ID_latch.inst_op == SUB && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+		{
+			++ID_WorkCycles;                               //Doing work
+			ID_EX_latch = IF_ID_latch;                     //Copy it forward
+			ID_EX_latch.rs = Registers[rs];                //replace register #s with the data inside them
+			ID_EX_latch.rt = Registers[rt];
+			ID_EX_Flag = 1;                                //Tell EX that next cycle is greenlight
+			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
+		}
+		else if(IF_ID_latch.inst_op == LW && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+		{
+			++ID_WorkCycles;                               //Record work done
+			ID_EX_latch = IF_ID_latch;                     //Copy it forward
+			ID_EX_latch.rs = Registers[rs];                //Only the rs reg, used with immediate by EX and MEM 
+									//rt is reg destination used by WB
+			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
+			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
+		}
+		else if(IF_ID_latch.inst_op == SW && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+		{
+			++ID_WorkCycles;                               //Record work done
+			ID_EX_latch = IF_ID_latch;                     //Copy it forward
+			ID_EX_latch.rs = Registers[rs];                //rs is used by EX along with immediate to get memory address
+			ID_EX_latch.rt = Registers[rt];                //rt is use by MEM as it is the data to be written into memory
+			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
+			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
+		}
 		
-			
+		
 	}
 	
