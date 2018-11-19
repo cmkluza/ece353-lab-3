@@ -1,7 +1,7 @@
 //Static int ID_WorkCycles = 0;      needs to be in main() to be exported to main at the end of sim                  
 void ID()
 {
-	Static int BeqTimer = 0;                                              //holds a timer for BEQ hazard avoidance
+	Static int BeqTimer = 0;                                              //holds a timer for BEQ hazard avoidance 
 	
 	if(IF_ID_latch.inst_op == LW || IF_ID_latch.inst_op == ADDI)
 	{                                                                      //This doesn't change any reg data, just holds reg # 
@@ -16,9 +16,9 @@ void ID()
 	   (IF_ID_latch.rs != MEM_WB_latch.rd || MEM_WB_Flag == 0) &&         //rd must be set to 32 <= rd <= -1 in previous latch after its copied forward out of EX and MEM
 	   (IF_ID_latch.rt != MEM_ WB_latch.rd || MEM_WB_Flag == 0))           //If Flag=0 then Write has happened and r/w can happen same cycle
 	{
-		if(IF_ID_latch.inst_op == BEQ && ID_EX_latch.inst_op != BEQ && ID_EX_Flag == 0 && IF_ID_Flag == 1)  //If Its a branch, yet to move forward, EX is ready, IF fetched
+		if(IF_ID_latch.inst_op == BEQ && ID_EX_latch.inst_op != BEQ && ID_EX_Flag == 0 && IF_ID_Flag == 1) //If Its a branch, yet to move forward, EX is ready,IF fetched
 		{
-			++ID_WorkCycles;                                                    //1 cycle of work
+			++ID_WorkCycles;                                                 //1 cycle of work
 			ID_EX_Latch = IF_ID_Latch;                                       //Copy to ex recieve latch
 			ID_EX_Latch.rs = Registers[rs]; 
 			ID_EX_Latch.rt = Registers[rt];                                  //fill struct with reg data for ex
@@ -51,7 +51,7 @@ void ID()
 		{
 			++ID_WorkCycles;                               //Record work done
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
-			ID_EX_latch.rs = Registers[rs];                //Only the rs reg, both rd and rt are the destination reg for addi!!!
+			ID_EX_latch.rs = Registers[rs];                //Only the rs reg, both rd and rt are the destination reg for addi
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
