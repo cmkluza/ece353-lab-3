@@ -3,7 +3,7 @@ void ID()
 {
 	Static int BeqTimer = 0;                                              //holds a timer for BEQ hazard avoidance
 	
-	if(IF_ID_latch.type == I)
+	if(IF_ID_latch.inst_type == I_TYPE)
 	{
 		IF_ID_latch.rd = IF_ID_latch.rt                               //makes RAW check simpler and rd isn't being used anyways, exists in both fields
 	}                                                                     //this will redunantly copy if pipe is stalled but won't hurt anything
