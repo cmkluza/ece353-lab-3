@@ -4,7 +4,7 @@ void ID()
 	Static int BeqTimer = 0;                                              //holds a timer for BEQ hazard avoidance
 	
 	if(IF_ID_latch.inst_op == LW || IF_ID_latch.inst_op == ADDI)
-	{
+	{                                                                      //This doesn't change any reg data, just holds reg # 
 		IF_ID_latch.rd = IF_ID_latch.rt;                               //makes RAW check simpler and rd isn't being used anyways, exists in both fields
 	}                                                                     //this will redunantly copy if pipe is stalled but won't hurt anything
 	                                                                      
@@ -33,8 +33,9 @@ void ID()
 			}
 			else
 			{
-				IF_ID_Flag = 0;    //Program counter is set, so IF can fetch
-                        	--BeqTimer;        //Set back to 0 
+				IF_ID_Flag = 0;                //Program counter is set, so IF can fetch
+                        	--BeqTimer;                    //Set back to 0 
+				ID_EX_latch.inst_op = DEADBEQ; //Needed incase of 2+ BEQ in a row, but since BEQ terminates in EX it won't go anywhere
 			}
 		}
 		else if(IF_ID_latch.inst_op == ADD && ID_EX_Flag == 0 && IF_ID_Flag == 1) //If its an add and Ex is ready and IF fetched last cycle
