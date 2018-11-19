@@ -13,8 +13,8 @@ void ID()
 	   IF_ID_latch.rt != ID_EX_latch.rd &&                                //that I'm not about to read a reg that is a 
 	   IF_ID_latch.rs != EX_MEM_latch.rd &&                               //destination reg for a instruction further 
 	   IF_ID_latch.rt != EX_MEM_latch.rd &&                               //down the pipe
-	   (IF_ID_latch.rs != MEM_WB_latch.rd && MEM_WB_Flag != 1) &&
-	   (IF_ID_latch.rt != EX_MEM_latch.rd && MEM_WB_Flag != 1))           //If Flag=0 then Write has happened and r/w can happen same cycle
+	   (IF_ID_latch.rs != MEM_WB_latch.rd || MEM_WB_Flag == 0) &&         //rd must be set to 32 <= rd <= -1 in previous latch after its copied forward out of EX and MEM
+	   (IF_ID_latch.rt != MEM_ WB_latch.rd || MEM_WB_Flag == 0))           //If Flag=0 then Write has happened and r/w can happen same cycle
 	{
 		if(IF_ID_latch.inst_op == BEQ && ID_EX_latch.inst_op != BEQ && ID_EX_Flag == 0 && IF_ID_Flag == 1)  //If Its a branch, yet to move forward, EX is ready, IF fetched
 		{
