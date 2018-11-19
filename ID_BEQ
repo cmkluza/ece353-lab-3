@@ -10,7 +10,7 @@ void ID()
 	   (IF_ID_latch.rs != MEM_WB_latch.rd && MEM_WB_Flag != 1) &&
 	   (IF_ID_latch.rt != EX_MEM_latch.rd && MEM_WB_Flag != 1))           //If Flag=0 then Write has happened and r/w can happen same cycle
 	{
-		if(IF_ID_latch.inst_op == BEQ && ID_EX_latch.inst_op != BEQ && ID_EX_Flag == 0)  //If Its a branch, but yet to move forward and EX is ready
+		if(IF_ID_latch.inst_op == BEQ && ID_EX_latch.inst_op != BEQ && ID_EX_Flag == 0 && IF_ID_Flag == 1)  //If Its a branch, yet to move forward, EX is ready, IF fetched
 		{
 			++ID_WorkCycles;                                                    //1 cycle of work
 			ID_EX_Latch = IF_ID_Latch;                                       //Copy to ex recieve latch
@@ -19,7 +19,7 @@ void ID()
 		        ID_EX_Flag = 1;                                                  //Tell EX its a go on the next cycle
 			BeqTimer = n + 1;                                                //Cycles EX reqires to resolve BEQ, could be off - 1 or -2                                    
 		}
-		else if (BeqTimer != 0)   //Its been moved forward but IF is/was waiting on proper PC
+		else if (BeqTimer != 0)   //Its a BEQ that has been moved forward but IF is/was waiting on proper PC
 		{
 			if(BeqTimer != 1)
 			{
@@ -31,6 +31,16 @@ void ID()
                         	--BeqTimer;        //Set back to 0 
 			}
 		}
-		else if(IF_ID_latch.inst_op == add)
+		else if(IF_ID_latch.inst_op == ADD && ID_EX_Flag == 0 && IF_ID_Flag == 1) //If its an add and Ex is ready and IF fetched last cycle
+		{
+			++ID_WorkCycles;                               //Doing work
+			ID_EX_latch = IF_ID_latch;                     //Copy it forward
+			ID_EX_latch.rs = Registers[rs];                //replace register #s with the data inside them
+			ID_EX_latch.rt = Registers[rt];
+			ID_EX_Flag = 1;                                //Tell EX that next cycle is greenlight
+			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
+		}
+		
+			
 	}
 	
