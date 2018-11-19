@@ -62,7 +62,7 @@ void ID()
 			++ID_WorkCycles;                               //Record work done
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
 			ID_EX_latch.rs = Registers[rs];                //Only the rs reg, used with immediate by EX and MEM 
-									//rt is reg destination used by WB
+			ID_EX_latch.rd = ID_EX_latch.rt			//rt is reg destination used by WB so to simplify RAW detection and WB I moved it into rd
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
