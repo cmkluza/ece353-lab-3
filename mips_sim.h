@@ -91,6 +91,11 @@ static int IF_ID_Flag, ID_EX_Flag, EX_MEM_Flag, MEM_WB_Flag, WB_HALT_Flag;
 */
 static int Registers[32]
 
+/**
+*Useful cycle counters
+*/
+static int IF_WorkCycles, ID_WorkCycles, EX_WorkCycles, MEM_WorkCycles, WB_WorkCycles;
+
 // anything else we need
 
 #endif //LAB_3_TEST_MIPS_SIM_H
