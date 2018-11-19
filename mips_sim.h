@@ -81,6 +81,16 @@ static int PC;
  */
 static struct latch IF_ID_latch, ID_EX_latch, EX_MEM_latch, MEM_WB_latch;
 
+/**
+*Flags
+*/
+static int IF_ID_Flag, ID_EX_Flag, EX_MEM_Flag, MEM_WB_Flag, WB_HALT_Flag;
+
+/**
+*Registers
+*/
+static int Registers[32]
+
 // anything else we need
 
 #endif //LAB_3_TEST_MIPS_SIM_H
