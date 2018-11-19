@@ -3,11 +3,11 @@ void ID()
 {
 	Static int BeqTimer = 0;                                              //holds a timer for BEQ hazard avoidance
 	
-	if(IF_ID_latch.inst_type == I_TYPE)
+	if(IF_ID_latch.inst_op == LW || IF_ID_latch.inst_op == ADDI)
 	{
-		IF_ID_latch.rd = IF_ID_latch.rt                               //makes RAW check simpler and rd isn't being used anyways, exists in both fields
+		IF_ID_latch.rd = IF_ID_latch.rt;                               //makes RAW check simpler and rd isn't being used anyways, exists in both fields
 	}                                                                     //this will redunantly copy if pipe is stalled but won't hurt anything
-	
+	                                                                      
 	
 	if(IF_ID_latch.rs != ID_EX_latch.rd &&                                //This looks complicated but It just checks
 	   IF_ID_latch.rt != ID_EX_latch.rd &&                                //that I'm not about to read a reg that is a 
@@ -50,7 +50,7 @@ void ID()
 		{
 			++ID_WorkCycles;                               //Record work done
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
-			ID_EX_latch.rs = Registers[rs];                //Only the rs reg, !!!rt is the destination reg for addi!!!
+			ID_EX_latch.rs = Registers[rs];                //Only the rs reg, both rd and rt are the destination reg for addi!!!
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
@@ -68,7 +68,7 @@ void ID()
 			++ID_WorkCycles;                               //Record work done
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
 			ID_EX_latch.rs = Registers[rs];                //Only the rs reg, used with immediate by EX and MEM 
-			ID_EX_latch.rd = ID_EX_latch.rt			//rt is reg destination used by WB so to simplify RAW detection and WB I moved it into rd
+			                                               //use rt or rd for destination
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
@@ -93,5 +93,5 @@ void ID()
 		//If none of the above conditions are met other stages are busy or not a valid opcode (wait)
 	}
 	//If theres a RAW hazard do nothing (wait)
-	else if( 
+	
 }
