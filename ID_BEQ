@@ -75,7 +75,7 @@ void ID()
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
-		else if(IF_ID_latch.inst_op == MULT && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+		else if(IF_ID_latch.inst_op == MUL && ID_EX_Flag == 0 && IF_ID_Flag == 1)
 		{
 			++ID_WorkCycles;                               //Doing work
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
