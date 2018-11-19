@@ -16,6 +16,7 @@ enum inst_op {
     ADD,
     ADDI,
     BEQ,
+    DEADBEQ, //Used in ID to ensure BEQ is terminated structurally after its resolved
     LW,
     MUL,
     SUB,
