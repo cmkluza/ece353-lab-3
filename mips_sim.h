@@ -6,6 +6,22 @@
 
 #include <stdint.h>
 
+// parser functions
+/**
+ * Converts register names to numbers.
+ * The return value from this method must be freed by the caller.
+ * Asserts that register names are valid, quits upon reading an invalid register.
+ */
+char *regNumberConverter(char *instruction);
+
+/**
+ * Converts the given instruction into an instruction struct.
+ * Asserts the following:
+ * - Legal op code
+ * - Legal immediate field and size (<= 16 bits)
+ */
+struct inst parser(char *instruction);
+
 /* ========== Structs and enums that might be used in the implementation ========== */
 
 /**
@@ -50,7 +66,7 @@ struct inst {
 };
 
 /**
- * Represents a latch that is placed between
+ * Represents a latch that is placed between stages.
  */
 struct latch {
     struct inst inst;
