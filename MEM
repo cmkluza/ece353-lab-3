@@ -1,0 +1,56 @@
+Void MEM()
+{
+  Static int MEM_Timer = 0;
+  if(EX_MEM_Flag == 1)                      //If latch is ready i can start working, *WRITEBACK* can never hold this up as WB only takes 1 Cycle
+  {
+    if(EX_MEM_latch.inst_op == SW)          //if its a store word
+    {
+      if(MEM_Timer == 0)                    //first cycle of a SW
+      {
+        MEM_Timer = c; //start timer        //This is how many cycles it will take
+        ++MEM_WorkingCycles;                //I've started so first cycle of work
+      }
+      if(MEM_Timer != 0 && MEM_Timer != 1)  //Mid operation, not done, but working
+      {
+        --MEM_Timer;
+        ++MEM_WorkingCycles;
+      }
+      if(MEM_Timer == 1)                   //Last cycle 
+      {
+        --MEM_Timer;                       //timer back to zero
+        DM[EX_result] = EX_MEM_latch.rt;   //store rt where EX has calculated it should go
+        MEM_WB_latch = EX_MEM_latch;       // no need to check the flag, WB cannot delay the pipe EVER (nice!:))
+        MEM_WB_Flag = 1;                   //Still i think ID uses the flag for RAW checks
+        EX_MEM_Flag = 0;                   // EX can fill it again
+      }
+    }
+     if(EX_MEM_latch.inst_op == LW)         //if its a Load word
+    {
+      if(MEM_Timer == 0)                    //first cycle of a LW
+      {
+        MEM_Timer = c; //start timer        //This is how many cycles it will take
+        ++MEM_WorkingCycles;                //I've started so first cycle of work
+      }
+      if(MEM_Timer != 0 && MEM_Timer != 1)  //Mid operation, not done, but working
+      {
+        --MEM_Timer;
+        ++MEM_WorkingCycles;
+      }
+      if(MEM_Timer == 1)                   //Last cycle
+      {
+        --MEM_Timer;                       //timer back to zero
+        MEM_WB_latch = EX_MEM_latch;       // no need to check the flag, WB cannot delay the pipe EVER (nice!:))
+        MEM_WB_latch.rt = DM[EX_result];   //go to location calculated by EX and copy the value found into rt
+        MEM_WB_Flag = 1;                   //Still i think ID uses the flag for RAW checks 
+        EX_MEM_Flag = 0;                   // EX can fill it again
+      }
+    }
+    else                                   //something is in the latch but i don't care what, i'll pass it on
+    {
+      MEM_WB_latch = EX_MEM_latch;         //move intruction forward (do nothing to it)
+      EX_MEM_Flag = 0;                     //EX can fill it again
+      MEM_WB_Flag = 1;                     //WB has work now
+    }
+  }
+}
+        
