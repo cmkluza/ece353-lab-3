@@ -9,10 +9,10 @@ void ID()
 	}                                                                     //this will redunantly copy if pipe is stalled but won't hurt anything
 	                                                                      
 	
-	if(IF_ID_latch.rs != ID_EX_latch.rd &&                                //This looks complicated but It just checks
-	   IF_ID_latch.rt != ID_EX_latch.rd &&                                //that I'm not about to read a reg that is a 
-	   IF_ID_latch.rs != EX_MEM_latch.rd &&                               //destination reg for a instruction further 
-	   IF_ID_latch.rt != EX_MEM_latch.rd &&                               //down the pipe
+	if((IF_ID_latch.rs != ID_EX_latch.rd || ID_EX_Flag == 0) &&           //This looks complicated but It just checks
+	   (IF_ID_latch.rt != ID_EX_latch.rd || ID_EX_Flag == 0) &&          //that I'm not about to read a reg that is a 
+	   (IF_ID_latch.rs != EX_MEM_latch.rd || EX_MEM_Flag == 0) &&        //destination reg for a instruction further 
+	   (IF_ID_latch.rt != EX_MEM_latch.rd || EX_MEM_Flag == 0) &&        //down the pipe, IF A FLAG == 0 the assoicated latch is stale and not "in the pipe"
 	   (IF_ID_latch.rs != MEM_WB_latch.rd || MEM_WB_Flag == 0) &&         //rd must be set to 32 <= rd <= -1 in previous latch after its copied forward out of EX and MEM
 	   (IF_ID_latch.rt != MEM_ WB_latch.rd || MEM_WB_Flag == 0))           //If Flag=0 then Write has happened and r/w can happen same cycle
 	{
