@@ -8,8 +8,8 @@
 
 #include "mips_sim.h"
 
-// helper macro that fills in fatalErr call with redundant information
-#define FATAL_ERR(msg, inst, col, ...) fatalErr(__FUNCTION__, __LINE__, msg, inst, col, ##__VA_ARGS__)
+// helper macro that fills in parserErr call with redundant information
+#define PARSER_ERR(msg, inst, col, ...) parserErr(__FUNCTION__, __LINE__, msg, inst, col, ##__VA_ARGS__)
 
 /* ====== Prototypes ====== */
 // regNumberConverter helpers
@@ -24,8 +24,8 @@ static void parseAddi(struct inst *inst, char *converted, char *remainingTokens)
 static void parseBeq(struct inst *inst, char *converted, char *remainingTokens);
 static void parseLwSw(struct inst *inst, char *converted, char *remainingTokens);
 static long Strtol(char **numStr, int min, int max, char *inst, long col);
-static void fatalErr(const char *function, int line, const char *msg,
-                     const char *inst, long col, ...);
+static void parserErr(const char *function, int line, const char *msg,
+                      const char *inst, long col, ...);
 
 // validate helpers
 static void validate(const char *instruction, enum inst_op op, enum inst_type type);
@@ -64,7 +64,7 @@ char *regNumberConverter(char *instruction) {
             // check for buffer overflow - if there is any, it indicates an error
             len = strlen(curToken);
             if (bufferPointer + len >= 255) {
-                FATAL_ERR("invalid instruction", copy, 0);
+                PARSER_ERR("invalid instruction", copy, 0);
             }
             // copy the token into buffer and add the space afterwards
             strncpy(buffer + bufferPointer, curToken, len);
@@ -87,7 +87,7 @@ struct inst parser(char *instruction) {
 
     // set the op
     if ((inst.op = getOp(converted)) == ERR) {
-        FATAL_ERR("unrecognized op in instruction", instruction, 0);
+        PARSER_ERR("unrecognized op in instruction", instruction, 0);
     }
     // set the type
     inst.type = getInstType(inst.op);
@@ -133,7 +133,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     *(token + 3) == 'o' && *(token + 4) == '\0') {
                     sprintf(result, "%d", 0);
                 } else {
-                    FATAL_ERR("invalid register number: %s", original, token - base, token);
+                    PARSER_ERR("invalid register number: %s", original, token - base, token);
                 }
                 break;
             case 'a': // "at" or "a0-a3"
@@ -144,7 +144,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     && *(token + 1) == '\0') { // "a0-a3"
                     sprintf(result, "%d", 4 + (*token - '0'));
                 } else {
-                    FATAL_ERR("invalid register number: %s", original, token - base - 1, token - 1);
+                    PARSER_ERR("invalid register number: %s", original, token - base - 1, token - 1);
                 }
                 break;
             case 'v': // "v0 or v1"
@@ -153,7 +153,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     && *(token + 1) == '\0') {
                     sprintf(result, "%d", 2 + (*token - '0'));
                 } else {
-                    FATAL_ERR("invalid register number: %s", original, token - base - 1, token - 1);
+                    PARSER_ERR("invalid register number: %s", original, token - base - 1, token - 1);
                 }
                 break;
             case 't': // "t0-t7" or "t8-t9"
@@ -165,7 +165,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     && *(token + 1) == '\0') { // "t0-t7"
                     sprintf(result, "%d", 8 + (*token - '0'));
                 } else {
-                    FATAL_ERR("invalid register number: %s", original, token - base - 1, token - 1);
+                    PARSER_ERR("invalid register number: %s", original, token - base - 1, token - 1);
                 }
                 break;
             case 's': // "s0-s7" or "sp"
@@ -176,7 +176,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     && *(token + 1) == '\0') { // "s0-s7"
                     sprintf(result, "%d", 16 + (*token - '0'));
                 } else {
-                    FATAL_ERR("invalid register number: %s", original, token - base - 1, token - 1);
+                    PARSER_ERR("invalid register number: %s", original, token - base - 1, token - 1);
                 }
                 break;
             case 'k': // "k0-k1"
@@ -185,32 +185,32 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     && *(token + 1) == '\0') {
                     sprintf(result, "%d", 26 + (*token - '0'));
                 } else {
-                    FATAL_ERR("invalid register number: %s", original, token - base - 1, token - 1);
+                    PARSER_ERR("invalid register number: %s", original, token - base - 1, token - 1);
                 }
                 break;
             case 'g': // "gp"
                 if (*(token + 1) == 'p' && *(token + 2) == '\0') {
                     sprintf(result, "%d", 28);
                 } else {
-                    FATAL_ERR("invalid register number: %s", original, token - base - 1, token - 1);
+                    PARSER_ERR("invalid register number: %s", original, token - base - 1, token - 1);
                 }
                 break;
             case 'f': // "fp"
                 if (*(token + 1) == 'p' && *(token + 2) == '\0') {
                     sprintf(result, "%d", 30);
                 } else {
-                    FATAL_ERR("invalid register number: %s", original, token - base, token);
+                    PARSER_ERR("invalid register number: %s", original, token - base, token);
                 }
                 break;
             case 'r': // "ra"
                 if (*(token + 1) == 'a' && *(token + 2) == '\0') {
                     sprintf(result, "%d", 31);
                 } else {
-                    FATAL_ERR("invalid register number: %s", original, token - base, token);
+                    PARSER_ERR("invalid register number: %s", original, token - base, token);
                 }
                 break;
             default:
-                FATAL_ERR("invalid register number: %s", original, token - base, token);
+                PARSER_ERR("invalid register number: %s", original, token - base, token);
         }
 
         return result;
@@ -298,19 +298,19 @@ static enum inst_type getInstType(enum inst_op op) {
  */
 static void parseRType(struct inst *inst, char *converted, char *remainingTokens) {
     if (!isdigit(*remainingTokens))
-        FATAL_ERR("expected a digit for rd, found: %s", converted,
+        PARSER_ERR("expected a digit for rd, found: %s", converted,
                   remainingTokens - converted, strtok(remainingTokens, " "));
     inst->rd = (uint8_t) Strtol(&remainingTokens, 0, 31, converted, remainingTokens - converted);
     ++remainingTokens; // skip the space
 
     if (!isdigit(*remainingTokens))
-        FATAL_ERR("expected a digit for rs, found: %s", converted,
+        PARSER_ERR("expected a digit for rs, found: %s", converted,
                   remainingTokens - converted, strtok(remainingTokens, " "));
     inst->rs = (uint16_t) Strtol(&remainingTokens, 0, 31, converted, remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens))
-        FATAL_ERR("expected a digit for rt, found: %s", converted,
+        PARSER_ERR("expected a digit for rt, found: %s", converted,
                   remainingTokens - converted, remainingTokens);
     inst->rt = (uint16_t) Strtol(&remainingTokens, 0, 31, converted, remainingTokens - converted);
 }
@@ -331,7 +331,7 @@ static void parseIType(struct inst *inst, char *converted, char *remainingTokens
             parseLwSw(inst, converted, remainingTokens);
             break;
         default:
-            FATAL_ERR("unrecognized instruction", converted, remainingTokens - converted);
+            PARSER_ERR("unrecognized instruction", converted, remainingTokens - converted);
     }
 }
 
@@ -342,19 +342,19 @@ static void parseIType(struct inst *inst, char *converted, char *remainingTokens
  */
 static void parseAddi(struct inst *inst, char *converted, char *remainingTokens) {
     if (!isdigit(*remainingTokens))
-        FATAL_ERR("expected a digit for rd, found: %s", converted,
+        PARSER_ERR("expected a digit for rd, found: %s", converted,
                   remainingTokens - converted, strtok(remainingTokens, " "));
     inst->rd = (uint8_t) Strtol(&remainingTokens, 0, 31, converted, remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens))
-        FATAL_ERR("expected a digit for rs, found: %s", converted,
+        PARSER_ERR("expected a digit for rs, found: %s", converted,
                   remainingTokens - converted, strtok(remainingTokens, " "));
     inst->rs = (uint16_t) Strtol(&remainingTokens, 0, 31, converted, remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens) || *remainingTokens == '-')
-        FATAL_ERR("expected a digit for the immediate, found: %s", converted,
+        PARSER_ERR("expected a digit for the immediate, found: %s", converted,
                   remainingTokens - converted, remainingTokens);
     inst->immediate = (int16_t) Strtol(&remainingTokens, INT16_MIN, INT16_MAX, converted, remainingTokens - converted);
 }
@@ -366,19 +366,19 @@ static void parseAddi(struct inst *inst, char *converted, char *remainingTokens)
  */
 static void parseBeq(struct inst *inst, char *converted, char *remainingTokens) {
     if (!isdigit(*remainingTokens))
-        FATAL_ERR("expected a digit for rt, found: %s", converted,
+        PARSER_ERR("expected a digit for rt, found: %s", converted,
                   remainingTokens - converted, strtok(remainingTokens, " "));
     inst->rt = (uint16_t) Strtol(&remainingTokens, 0, 31, converted, remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens))
-        FATAL_ERR("expected a digit for rs, found: %s", converted,
+        PARSER_ERR("expected a digit for rs, found: %s", converted,
                   remainingTokens - converted, strtok(remainingTokens, " "));
     inst->rs = (uint16_t) Strtol(&remainingTokens, 0, 31, converted, remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens) || *remainingTokens == '-')
-        FATAL_ERR("expected a digit for the immediate, found: %s", converted,
+        PARSER_ERR("expected a digit for the immediate, found: %s", converted,
                   remainingTokens - converted, remainingTokens);
     inst->immediate = (int16_t) Strtol(&remainingTokens, INT16_MIN, INT16_MAX, converted, remainingTokens - converted);
 }
@@ -390,23 +390,23 @@ static void parseBeq(struct inst *inst, char *converted, char *remainingTokens) 
  */
 static void parseLwSw(struct inst *inst, char *converted, char *remainingTokens) {
     if (!isdigit(*remainingTokens))
-        FATAL_ERR("expected a digit for rt, found: %s", converted,
+        PARSER_ERR("expected a digit for rt, found: %s", converted,
                   remainingTokens - converted, strtok(remainingTokens, " "));
     inst->rt = (uint16_t) Strtol(&remainingTokens, 0, 31, converted, remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens))
-        FATAL_ERR("expected a digit for the immediate, found: %s", converted,
+        PARSER_ERR("expected a digit for the immediate, found: %s", converted,
                   remainingTokens - converted, strtok(remainingTokens, " "));
     inst->immediate = (int16_t) Strtol(&remainingTokens, INT16_MIN, INT16_MAX, converted, remainingTokens - converted);
     // assert that memory access is aligned to 4
     if (inst->immediate & 0x3) {
-        FATAL_ERR("misaligned memory access", converted, 0);
+        PARSER_ERR("misaligned memory access", converted, 0);
     }
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens))
-        FATAL_ERR("expected a digit for rs, found: %s", converted,
+        PARSER_ERR("expected a digit for rs, found: %s", converted,
                   remainingTokens - converted, remainingTokens);
     inst->rs = (uint16_t) Strtol(&remainingTokens, 0, 31, converted, remainingTokens - converted);
 }
@@ -420,12 +420,12 @@ static long Strtol(char **numStr, int min, int max, char *inst, long col) {
     long num = strtol(*numStr, numStr, 0);
 
     if (errno == ERANGE || num == LONG_MAX || num == LONG_MIN) {
-        FATAL_ERR("couldn't parse number: %s", inst, col, strtok(*numStr, " "));
+        PARSER_ERR("couldn't parse number: %s", inst, col, strtok(*numStr, " "));
     }
 
     // range check
     if (num > max || num < min) {
-        FATAL_ERR("%d is out of bounds for this field - please use a number between [%d, %d]",
+        PARSER_ERR("%d is out of bounds for this field - please use a number between [%d, %d]",
                   inst, col, num, min, max);
     }
 
@@ -436,8 +436,8 @@ static long Strtol(char **numStr, int min, int max, char *inst, long col) {
 /**
  * Logs a fatal error and quits the program.
  */
-static void fatalErr(const char *function, int line, const char *msg,
-                     const char *inst, long col, ...) {
+static void parserErr(const char *function, int line, const char *msg,
+                      const char *inst, long col, ...) {
     va_list args;
     va_start(args, col);
 
@@ -478,32 +478,32 @@ static void validateRType(const char *instruction) {
     // op_name has already been validated, skip it
     char *cur = strchr(instruction, ' ');
     if (!cur) {
-        FATAL_ERR("too few arguments to instruction: missing rd, rs, and rt", instruction, 0);
+        PARSER_ERR("too few arguments to instruction: missing rd, rs, and rt", instruction, 0);
     }
 
     // each of the next three operands should be registers (i.e. start with '$')
     if (*(cur + 1) != '$') {
-        FATAL_ERR("malformed register for rd", instruction,
+        PARSER_ERR("malformed register for rd", instruction,
                   cur + 1 - instruction);
     }
 
     cur = strchr(cur + 1, ' ');
     if (!cur) {
-        FATAL_ERR("too few arguments to instruction: missing rs and rt", instruction, 0);
+        PARSER_ERR("too few arguments to instruction: missing rs and rt", instruction, 0);
     }
 
     if (*(cur + 1) != '$') {
-        FATAL_ERR("malformed register for rs", instruction,
+        PARSER_ERR("malformed register for rs", instruction,
                   cur + 1 - instruction);
     }
 
     cur = strchr(cur + 1, ' ');
     if (!cur) {
-        FATAL_ERR("too few arguments to instruction: missing rt", instruction, 0);
+        PARSER_ERR("too few arguments to instruction: missing rt", instruction, 0);
     }
 
     if (*(cur + 1) != '$') {
-        FATAL_ERR("malformed register for rt", instruction,
+        PARSER_ERR("malformed register for rt", instruction,
                   cur + 1 - instruction);
     }
 
@@ -511,7 +511,7 @@ static void validateRType(const char *instruction) {
     cur = strchr(cur + 1, ' ');
     while (cur && isspace(*(cur))) ++cur;
     if (cur && *cur != '\0') {
-        FATAL_ERR("malformed instruction, unexpected tokens: %s",
+        PARSER_ERR("malformed instruction, unexpected tokens: %s",
                   instruction, cur - instruction, cur);
     }
 }
@@ -535,32 +535,32 @@ static void validateAddiBeq(const char *instruction) {
     // op_name has already been validated, skip it
     char *cur = strchr(instruction, ' ');
     if (!cur) {
-        FATAL_ERR("too few arguments to instruction: missing rd/rt, rs, and immediate/offset",
+        PARSER_ERR("too few arguments to instruction: missing rd/rt, rs, and immediate/offset",
                   instruction, 0);
     }
 
     if (*(cur + 1) != '$') {
-        FATAL_ERR("malformed register for rd/rs", instruction, cur + 1 - instruction);
+        PARSER_ERR("malformed register for rd/rs", instruction, cur + 1 - instruction);
     }
 
     cur = strchr(cur + 1, ' ');
     if (!cur) {
-        FATAL_ERR("too few arguments to instruction: missing rs and immediate/offset",
+        PARSER_ERR("too few arguments to instruction: missing rs and immediate/offset",
                   instruction, 0);
     }
 
     if (*(cur + 1) != '$') {
-        FATAL_ERR("malformed register for rs", instruction, cur + 1 - instruction);
+        PARSER_ERR("malformed register for rs", instruction, cur + 1 - instruction);
     }
 
     cur = strchr(cur + 1, ' ');
     if (!cur) {
-        FATAL_ERR("too few arguments to instruction: missing immediate/offset",
+        PARSER_ERR("too few arguments to instruction: missing immediate/offset",
                   instruction, 0);
     }
 
     if (!isdigit(*(cur + 1))) {
-        FATAL_ERR("malformed number for the immediate/offset", instruction,
+        PARSER_ERR("malformed number for the immediate/offset", instruction,
                   cur + 1 - instruction);
     }
 
@@ -568,7 +568,7 @@ static void validateAddiBeq(const char *instruction) {
     cur = strchr(cur + 1, ' ');
     while (cur && isspace(*(cur))) ++cur;
     if (cur && *cur != '\0') {
-        FATAL_ERR("malformed instruction, unexpected tokens: %s",
+        PARSER_ERR("malformed instruction, unexpected tokens: %s",
                   instruction, cur - instruction, cur);
     }
 }
@@ -581,34 +581,34 @@ static void validateLwSw(const char *instruction) {
     // op_name has already been validated, skip it
     char *cur = strchr(instruction, ' ');
     if (!cur) {
-        FATAL_ERR("too few arguments to instruction: missing rt, offset, and rs",
+        PARSER_ERR("too few arguments to instruction: missing rt, offset, and rs",
                   instruction, 0);
     }
 
     if (*(cur + 1) != '$') {
-        FATAL_ERR("malformed register for rt", instruction,
+        PARSER_ERR("malformed register for rt", instruction,
                   cur + 1 - instruction);
     }
 
     cur = strchr(cur + 1, ' ');
     if (!cur) {
-        FATAL_ERR("too few arguments to instruction: missing offset and rs",
+        PARSER_ERR("too few arguments to instruction: missing offset and rs",
                   instruction, 0);
     }
 
     if (!isdigit(*(cur + 1))) {
-        FATAL_ERR("malformed number for the offset", instruction,
+        PARSER_ERR("malformed number for the offset", instruction,
                   cur + 1 - instruction);
     }
 
     cur = strchr(cur + 1, ' ');
     if (!cur) {
-        FATAL_ERR("too few arguments to instruction: missing rs",
+        PARSER_ERR("too few arguments to instruction: missing rs",
                   instruction, 0);
     }
 
     if (*(cur + 1) != '$') {
-        FATAL_ERR("malformed register for rs", instruction,
+        PARSER_ERR("malformed register for rs", instruction,
                   cur + 1 - instruction);
     }
 
@@ -616,7 +616,7 @@ static void validateLwSw(const char *instruction) {
     cur = strchr(cur + 1, ' ');
     while (cur && isspace(*(cur))) ++cur;
     if (cur && *cur != '\0') {
-        FATAL_ERR("malformed instruction, unexpected tokens: %s",
+        PARSER_ERR("malformed instruction, unexpected tokens: %s",
                   instruction, cur - instruction, cur);
     }
 }
