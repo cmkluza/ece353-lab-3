@@ -17,33 +17,21 @@ static char *getRegNumber(char *token, char *base, char *original);
 
 // parser helpers
 static enum inst_op getOp(char *instruction);
-
 static enum inst_type getInstType(enum inst_op op);
-
 static void parseRType(struct inst *inst, char *converted, char *remainingTokens);
-
 static void parseIType(struct inst *inst, char *converted, char *remainingTokens);
-
 static void parseAddi(struct inst *inst, char *converted, char *remainingTokens);
-
 static void parseBeq(struct inst *inst, char *converted, char *remainingTokens);
-
 static void parseLwSw(struct inst *inst, char *converted, char *remainingTokens);
-
 static long Strtol(char **numStr, int min, int max, char *inst, long col);
-
 static void fatalErr(const char *function, int line, const char *msg,
                      const char *inst, long col, ...);
 
 // validate helpers
 static void validate(const char *instruction, enum inst_op op, enum inst_type type);
-
 static void validateRType(const char *instruction);
-
 static void validateIType(const char *instruction, enum inst_op op);
-
 static void validateAddiBeq(const char *instruction);
-
 static void validateLwSw(const char *instruction);
 
 /* ====== Primary Functions ====== */
@@ -75,7 +63,7 @@ char *regNumberConverter(char *instruction) {
         } else { // not a register
             // check for buffer overflow - if there is any, it indicates an error
             len = strlen(curToken);
-            if (bufferPointer + len >= 256) {
+            if (bufferPointer + len >= 255) {
                 FATAL_ERR("invalid instruction", copy, 0);
             }
             // copy the token into buffer and add the space afterwards
@@ -87,7 +75,8 @@ char *regNumberConverter(char *instruction) {
 
     free(copy);
 
-    // null-terminate and return
+    // if there's a trailing space, remove it; terminate the string regardless
+    if (buffer[bufferPointer - 1] == ' ') --bufferPointer;
     buffer[bufferPointer] = '\0';
     return buffer;
 }
@@ -238,7 +227,11 @@ static char *getRegNumber(char *token, char *base, char *original) {
 static enum inst_op getOp(char *instruction) {
     switch (*instruction) {
         case 'h': // "haltSimulation"
-            return HALT;
+            if (strcmp("haltSimulation", instruction) != 0) {
+                return ERR;
+            } else {
+                return HALT;
+            }
         case 'a': // "add" or "addi"
             if (*(instruction + 1) != 'd' || *(instruction + 2) != 'd') {
                 return ERR; // operation is invalid
