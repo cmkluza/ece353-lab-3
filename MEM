@@ -19,8 +19,8 @@ Void MEM()
       {
         --MEM_Timer;                       //timer back to zero
         DM[EX_result] = EX_MEM_latch.rt;   //store rt where EX has calculated it should go
-        MEM_WB_latch = EX_MEM_latch;       // no need to check the flag, WB cannot delay the pipe EVER (nice!:))
-        MEM_WB_Flag = 1;                   //Still i think ID uses the flag for RAW checks
+                                           // no need to pass it on, it finishes here.
+                         
         EX_MEM_Flag = 0;                   // EX can fill it again
       }
     }
@@ -41,6 +41,7 @@ Void MEM()
         --MEM_Timer;                       //timer back to zero
         MEM_WB_latch = EX_MEM_latch;       // no need to check the flag, WB cannot delay the pipe EVER (nice!:))
         MEM_WB_latch.rt = DM[EX_result];   //go to location calculated by EX and copy the value found into rt
+                                           //could leave it in rd if it make WB any easier
         MEM_WB_Flag = 1;                   //Still i think ID uses the flag for RAW checks 
         EX_MEM_Flag = 0;                   // EX can fill it again
       }
