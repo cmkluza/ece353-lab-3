@@ -409,7 +409,69 @@ void IF(void) {
 void ID(void) {}
 
 // TODO
-void EX(void) {}
+void EX(void) {
+ 
+ 	if(ID_EX_Flag==1 && EX_Inst_Cycles==0){
+ 		struct curr_inst= ID_EX_latch;
+ 		ID_EX_Flag=0;
+ 	}
+ 
+ 	EX_Inst_Cycles++;
+
+    // ADD operation
+	if (curr_inst.op==ADD){
+		if (EX_Inst_Cycles>=n){
+			curr_inst.EX_result= (int16_t) curr_inst.rs + curr_inst.rt;
+		}
+	}
+	
+	// ADDI operation
+	if (curr_inst.op==ADDI){
+		if (EX_Inst_Cycles>=n){
+			curr_inst.EX_result= (int16_t) curr_inst.rs + curr_inst.immediate;
+		}
+	}
+	
+	//BEQ operation
+	if (curr_inst.op==BEQ){
+	
+		if (EX_Inst_Cycles>=n){
+			curr_inst.EX_result= (int16_t) curr_inst.rt - curr_inst.rs;
+			if (curr_inst.EX_result==0) PC = PC + 4 + 4 * (curr_inst.immediate);
+		}
+	}
+	
+	//LW and SW operation, not sure how to do this
+	if (curr_inst.op==LW || curr_inst..op==SW){
+		if (EX_Inst_Cycles>=n){
+			curr_inst.EX_result= (int16_t) curr_inst.rs + curr_inst.immediate; 
+		}
+	}
+	
+	//SUB operation
+	if (curr_inst.op==SUB){
+		if (EX_Inst_Cycles>=n){
+			curr_inst.EX_result= (int16_t) curr_inst.rs - curr_inst.rt;
+		}
+	}
+	
+	//MUL operation
+	if (curr_inst.op==MUL){
+		if (EX_Inst_Cycles>=m){
+			curr_inst.EX_result= (int16_t) curr_inst.rs * curr_inst.rt;
+		}
+	}
+	
+	//send instruction to MEM
+	if (EX_MEM_Flag==0){
+		EX_MEM_latch=curr.inst;
+		EX_MEM_Flag=1;
+		EX_Inst_Cycles=0;
+		if (curr_inst.op==MUL) EX_WorkCycles=EX_WorkCycles+m;
+		else if (curr_inst.op!=HALT && curr_inst.op!=MUL) EX_WorkCycles=EX_WorkCycles+n;
+	}
+		
+}
 
 // TODO
 void MEM(void) {}
