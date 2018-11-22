@@ -386,23 +386,23 @@ struct inst parser(char *instruction) {
 
 // TODO
 void IF(void) {
-    IF_Inst_Cycles++;
-   	struct inst curr_inst;
-   	curr_inst= IM[PC];                                            // create local copy of the instruction to be executed
+    IF_Cycle_Counter++;
+	struct inst curr_inst;
+	curr_inst= IM[PC];                                            // create local copy of the instruction to be executed
 
-   	if (IF_ID_Flag==0){                                           // check if latch is empty
-           if (curr_inst.op==HALT){                  
-	        IF_ID_latch= curr_inst;                               // send the halt instruction to the next stage
-	        IF_ID_Flag=1;
-	  	    }
-           if (IF_Inst_Cycles>=c){                
-                IF_ID_latch= curr_inst;                               // send the instruction to the next stage
-		PC= PC + 4;                                           // change PC to the next instruction
-                IF_ID_Flag=1;                                         // set flag IF/ID latch not empty
-		IF_Inst_Cycles=0;
-	        IF_WorkCycles=IF_WorkCycles+c;                        // updates count of useful cycles
-           }  
-   	}
+	if (IF_ID_Flag==0){                                           // check if latch is empty
+		if (curr_inst.op==HALT){                  
+	    	IF_ID_latch= curr_inst;                               // send the halt instruction to the next stage
+			IF_ID_Flag=1;
+		}
+		if (IF_Cycle_Counter>=c){                
+			IF_ID_latch= curr_inst;                               // send the instruction to the next stage
+			PC= PC + 4;                                           // change PC to the next instruction
+			IF_ID_Flag=1;                                         // set flag IF/ID latch not empty
+			IF_Cycle_Counter=0;
+			IF_WorkCycles=IF_WorkCycles+c;                        // updates count of useful cycles
+		}
+	}
 }
 
 // TODO
