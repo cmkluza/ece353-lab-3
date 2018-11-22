@@ -386,6 +386,7 @@ struct inst parser(char *instruction) {
 
 // TODO
 void IF(void) {
+	
     IF_Inst_Cycles++;
 	struct inst curr_inst;
 	curr_inst= IM[PC];                                            // create local copy of the instruction to be executed
@@ -418,14 +419,14 @@ void EX(void) {
  
  	EX_Inst_Cycles++;
 
-    // ADD operation
+        //ADD operation
 	if (curr_inst.op==ADD){
 		if (EX_Inst_Cycles>=n){
 			curr_inst.EX_result= (int16_t) curr_inst.rs + curr_inst.rt;
 		}
 	}
 	
-	// ADDI operation
+	//ADDI operation
 	if (curr_inst.op==ADDI){
 		if (EX_Inst_Cycles>=n){
 			curr_inst.EX_result= (int16_t) curr_inst.rs + curr_inst.immediate;
