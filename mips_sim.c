@@ -435,7 +435,6 @@ void EX(void) {
 	
 	//BEQ operation
 	if (curr_inst.op==BEQ){
-	
 		if (EX_Inst_Cycles>=n){
 			curr_inst.EX_result= (int16_t) curr_inst.rt - curr_inst.rs;
 			if (curr_inst.EX_result==0) PC = PC + 4 + 4 * (curr_inst.immediate);
