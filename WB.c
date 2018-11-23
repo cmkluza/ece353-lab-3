@@ -1,4 +1,3 @@
-static int wbCount;  //WB useful counter
 void WB()
 {
 	//Note: SW is done in MEM I think so it's not included
@@ -11,27 +10,27 @@ void WB()
 		else if(MEM_WB_Latch.op == ADD) //if ADD use [RD] 
 			{
 				Registers[MEM_WB_Latch.rd] = MEM_WB_Latch.result;
-				wbCount+=1; //increase useful counter
+				WB_WorkCycles++; //increase useful counter
 			}
 		else if(MEM_WB_Latch.op == ADDI) //if ADDI use [RT]
 			{
 				Registers[MEM_WB_Latch.rt] = MEM_WB_Latch.result;
-				wbCount+=1;	
+				WB_WorkCycles++;	
 			} 
 		else if(MEM_WB_Latch.op == SUB) //if SUB use [RD]
 			{
 				Registers[MEM_WB_Latch.rd] = MEM_WB_Latch.result;
-				wbCount+=1;
+				WB_WorkCycles++;
 			} 
 		else if(MEM_WB_Latch.op == MUL) //if MULT use [RD]
 			{
 				Registers[MEM_WB_Latch.rd] = MEM_WB_Latch.result;
-				wbCount+=1;
+				WB_WorkCycles++;
 			} 
 		else if(MEM_WB_Latch.op == LW) //if LW use [RT]
 			{
 				Registers[MEM_WB_Latch.rt] = MEM_WB_Latch.result;
-				wbCount+=1;
+				WB_WorkCycles++;
 			} 
 										//SW is done in MEM
 	}
