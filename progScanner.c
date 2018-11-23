@@ -45,7 +45,7 @@ char *progScanner(FILE *inputFile, char *inputLine){
     strcat(result, " ");
     strcat(result, instructionFields[3]);
     
-    printf("%s\n",result);
-
+    //printf("%s\n",result);
+return result;
 }
 
