@@ -2,7 +2,7 @@
  * Authors: Laura DeBurgo, Dametreuss Francois, Cameron Kluza, Kyle McWherter
  */
 
- /* ======================== Preprocessor Directives ======================== */
+/* ======================== Preprocessor Directives ======================== */
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -36,7 +36,8 @@ enum inst_op {
     MUL,
     SUB,
     SW,
-    HALT // "haltSimulation"
+    HALT, // "haltSimulation"
+    COMMENT // # comments
 };
 
 /**
@@ -55,24 +56,24 @@ struct inst {
     enum inst_op op;
     enum inst_type type;
     // source registers - hold either the index of a register or the contents of a register
-    int16_t rs;
-    int16_t rt;
+    int32_t rs;
+    int32_t rt;
     // destination register - only holds the index of a register
     uint8_t rd;
     // the result from an operation to be written to rd
-    int16_t EX_result;
+    int32_t EX_result;
     // immediate or offset value for I-Type instructions
     int16_t immediate;
 };
 
-/* ======================= Parsing Function Prototypes ====================== */
+/* =========================== Function Prototypes ========================== */
 /**
  * Reads input from a text file and returns the string as a list of space
  * separated tokens.
  * Treats consecutive commas as a single comma.
  * Asserts proper parenthesis format for loads and stores.
  */
-char *progScanner();
+char *progScanner(FILE *inputFile, char *inputLine);
 
 /**
  * Takes as input the output of progScanner and returns a string with registers
@@ -122,27 +123,47 @@ void MEM(void);
  */
 void WB(void);
 
+// populates the instruction memory
+static void populateIM(FILE *input);
+
 // regNumberConverter helper functions
 static char *getRegNumber(char *token, char *base, char *original);
 
 // parser helper functions
 static enum inst_op getOp(char *instruction);
+
 static enum inst_type getInstType(enum inst_op op);
-static void parseRType(struct inst *inst, char *converted, char *remainingTokens);
-static void parseIType(struct inst *inst, char *converted, char *remainingTokens);
-static void parseAddi(struct inst *inst, char *converted, char *remainingTokens);
-static void parseBeq(struct inst *inst, char *converted, char *remainingTokens);
-static void parseLwSw(struct inst *inst, char *converted, char *remainingTokens);
+
+static void
+parseRType(struct inst *inst, char *converted, char *remainingTokens);
+
+static void
+parseIType(struct inst *inst, char *converted, char *remainingTokens);
+
+static void
+parseAddi(struct inst *inst, char *converted, char *remainingTokens);
+
+static void
+parseBeq(struct inst *inst, char *converted, char *remainingTokens);
+
+static void
+parseLwSw(struct inst *inst, char *converted, char *remainingTokens);
+
 static long Strtol(char **numStr, int min, int max, char *inst, long col);
+
 static void parserErr(const char *function, int line, const char *msg,
                       const char *inst, long col, ...);
 
 // validation helper functions
 static void validate(const char *instruction, enum inst_op op,
-        enum inst_type type);
+                     enum inst_type type);
+
 static void validateRType(const char *instruction);
+
 static void validateIType(const char *instruction, enum inst_op op);
+
 static void validateAddiBeq(const char *instruction);
+
 static void validateLwSw(const char *instruction);
 
 /* ============================= Global Variables =========================== */
@@ -152,11 +173,13 @@ static void validateLwSw(const char *instruction);
  */
 static struct inst IM[512];
 
+//  but I'm pretty sure it's actually supposed to be word addressable. should be
+//  a few simple changes that don't affect your guys' code at all.
 /**
- * Data memory - 2kB.
- * Byte-addressable.
+ * Data memory - 512 x 1-word data.
+ * Word-addressable, so access should be DM[addr >> 2]
  */
-static uint8_t DM[2048];
+static int32_t DM[512];
 
 /**
  * Program counter
@@ -176,30 +199,30 @@ static int IF_ID_Flag, ID_EX_Flag, EX_MEM_Flag, MEM_WB_Flag, WB_HALT_Flag;
 /**
 * Registers
 */
-static long Registers[REG_NUM];
+static int32_t Registers[REG_NUM];
 
 /**
 * Useful cycle counters
 */
 static long IF_WorkCycles, ID_WorkCycles, EX_WorkCycles, MEM_WorkCycles,
-    WB_WorkCycles;
+        WB_WorkCycles;
 
 /**
 * IF and EX instruction cycle counter
 */
 static long IF_Inst_Cycles, EX_Inst_Cycles;
 
-// TODO - is this okay?
-static int haltPassedWB;
+/**
+ * Cycle variables
+ */
+static int m; // number of cycles for multiply
+static int n; // number of cycles for all other EX operations
+static int c; // number of cycles for memory access
 
 /* ============================== Main Function ============================= */
 int main(int argc, char *argv[]) {
     // given variables
     int sim_mode = BATCH; // mode flag, 1 for single-cycle, 0 for batch
-
-    int c; // number of cycles for memory access
-    int m; // number of cycles for multiply
-    int n; // number of cycles for all other EX operations
 
     int i; // for loop counter
     long sim_cycle = 0; // simulation cycle counter
@@ -247,12 +270,12 @@ int main(int argc, char *argv[]) {
     }
 
     /* ========== IM Initialization ========== */
-    // TODO
+    populateIM(input);
 
     /* ========== Main Program Loop ========== */
     while (1) {
         // stop once halt has passed through every stage
-        if (haltPassedWB) break;
+        if (WB_HALT_Flag) break;
 
         // call each stage in reverse
         WB();
@@ -265,9 +288,9 @@ int main(int argc, char *argv[]) {
         if (sim_mode == SINGLE) {
             printf("cycle: %ld register value: ", sim_cycle);
             for (i = 1; i < REG_NUM; i++) {
-                printf("%ld  ", Registers[i]);
+                printf("%d  ", Registers[i]);
             }
-            printf("program counter: %ld\n", PC);
+            printf("\nprogram counter: %ld\n", PC);
             printf("press ENTER to continue\n");
             while (getchar() != '\n');
         }
@@ -290,7 +313,7 @@ int main(int argc, char *argv[]) {
 
         fprintf(output, "register values ");
         for (i = 1; i < REG_NUM; i++) {
-            fprintf(output, "%ld  ", Registers[i]);
+            fprintf(output, "%d  ", Registers[i]);
         }
         fprintf(output, "%ld\n", PC);
     }
@@ -308,14 +331,69 @@ int main(int argc, char *argv[]) {
 }
 
 /* ======================== Function Implementations ======================== */
-// TODO
-char *progScanner() {}
+char *progScanner(FILE *inputFile, char *inputLine){
+    fgets(inputLine,100, inputFile);
+
+    if (*inputLine == '\n') return "\n"; // blank lines
+
+    char *givenLine;
+    givenLine = (char*)malloc(100*sizeof(char ));
+    strcpy(givenLine,inputLine); //strtok is destructive so im using a copy instead
+
+    int i;
+    char delimiters[]={"," "(" ")" ";" "\n" " "};
+    char ** instructionFields;
+
+    instructionFields = (char **)malloc(100*sizeof(char *));
+    for (i=0; i<4; i++)
+        *(instructionFields+i) = (char *) malloc(20*sizeof(char *));
+
+    instructionFields[0] = strtok(givenLine, delimiters);
+
+    if(strcmp(instructionFields[0],"haltSimulation")== 0)
+    {
+
+        for(i=1;i<4;i++)
+            instructionFields[i] = "0";
+
+    }
+    else
+    {
+
+        for(i=1;i<4;i++)
+            instructionFields[i]=strtok(NULL,delimiters);
+
+    }
+
+    char *result = malloc(100*sizeof(char *));
+    strcpy(result, instructionFields[0]);
+    strcat(result, " ");
+
+    for (i = 1; i < 4; ++i) {
+        if (instructionFields[i] != NULL)
+            strcat(result, instructionFields[i]);
+        if (i != 3) strcat(result, " ");
+    }
+
+//    strcat(result, instructionFields[1]);
+//    strcat(result, " ");
+//    strcat(result, instructionFields[2]);
+//    strcat(result, " ");
+//    strcat(result, instructionFields[3]);
+
+    return result;
+}
 
 char *regNumberConverter(char *instruction) {
     // local copies of data to prevent modification of external data
     char *copy = malloc(strlen(instruction) + 1);
     char *base = copy;
     strcpy(copy, instruction);
+
+    if (*base == '#') {
+        printf("caught comment\n");
+        return copy;
+    }
 
     // data used to store the result of conversion
     char *buffer = malloc(256);
@@ -358,6 +436,10 @@ char *regNumberConverter(char *instruction) {
 
 struct inst parser(char *instruction) {
     struct inst inst;
+    if (*instruction == '#') {
+        inst.op = COMMENT;
+        return inst;
+    }
     char *converted = regNumberConverter(instruction);
 
     // set the op
@@ -384,102 +466,319 @@ struct inst parser(char *instruction) {
     return inst;
 }
 
-// TODO
-void IF(void) {
-	
+void IF() {
+
     IF_Inst_Cycles++;
-	struct inst curr_inst;
-	curr_inst= IM[PC];                                            // create local copy of the instruction to be executed
+    struct inst curr_inst;
+    curr_inst= IM[PC >> 2];                                       // create local copy of the instruction to be executed
 
-	if (IF_ID_Flag==0){                                           // check if latch is empty
-		if (curr_inst.op==HALT){                  
-	    	IF_ID_latch= curr_inst;                               // send the halt instruction to the next stage
-			IF_ID_Flag=1;
-		}
-		if (IF_Inst_Cycles>=c){                
-			IF_ID_latch= curr_inst;                               // send the instruction to the next stage
-			PC= PC + 4;                                           // change PC to the next instruction
-			IF_ID_Flag=1;                                         // set flag IF/ID latch not empty
-			IF_Inst_Cycles=0;
-			IF_WorkCycles=IF_WorkCycles+c;                        // updates count of useful cycles
-		}
-	}
+    if (IF_ID_Flag==0){                                           // check if latch is empty
+        if (curr_inst.op==HALT){
+            IF_ID_latch= curr_inst;                               // send the halt instruction to the next stage
+            IF_ID_Flag=1;
+        }
+        if (IF_Inst_Cycles>=c){
+            IF_ID_latch= curr_inst;                               // send the instruction to the next stage
+            PC= PC + 4;                                           // change PC to the next instruction
+            IF_ID_Flag=1;                                         // set flag IF/ID latch not empty
+            IF_Inst_Cycles=0;
+            IF_WorkCycles=IF_WorkCycles+c;                        // updates count of useful cycles
+        }
+    }
+
 }
 
-// TODO
-void ID(void) {}
+void ID()
+{
+    static int BeqTimer = 0;                                              //holds a timer for BEQ hazard avoidance
 
-// TODO
-void EX(void) {
- 
- 	if(ID_EX_Flag==1 && EX_Inst_Cycles==0){
- 		struct curr_inst= ID_EX_latch;
- 		ID_EX_Flag=0;
- 	}
- 
- 	EX_Inst_Cycles++;
+    if(IF_ID_latch.op == LW || IF_ID_latch.op == ADDI)
+    {                                                                      //This doesn't change any reg data, just holds reg #
+        IF_ID_latch.rd = IF_ID_latch.rt;                               //makes RAW check simpler and rd isn't being used anyways, exists in both fields
+    }                                                                     //this will redunantly copy if pipe is stalled but won't hurt anything
 
-        //ADD operation
-	if (curr_inst.op==ADD){
-		if (EX_Inst_Cycles>=n){
-			curr_inst.EX_result= (int16_t) curr_inst.rs + curr_inst.rt;
-		}
-	}
-	
-	//ADDI operation
-	if (curr_inst.op==ADDI){
-		if (EX_Inst_Cycles>=n){
-			curr_inst.EX_result= (int16_t) curr_inst.rs + curr_inst.immediate;
-		}
-	}
-	
-	//BEQ operation
-	if (curr_inst.op==BEQ){
-		if (EX_Inst_Cycles>=n){
-			curr_inst.EX_result= (int16_t) curr_inst.rt - curr_inst.rs;
-			if (curr_inst.EX_result==0) PC = PC + 4 + 4 * (curr_inst.immediate);
-		}
-	}
-	
-	//LW and SW operation, not sure how to do this
-	if (curr_inst.op==LW || curr_inst..op==SW){
-		if (EX_Inst_Cycles>=n){
-			curr_inst.EX_result= (int16_t) curr_inst.rs + curr_inst.immediate; 
-		}
-	}
-	
-	//SUB operation
-	if (curr_inst.op==SUB){
-		if (EX_Inst_Cycles>=n){
-			curr_inst.EX_result= (int16_t) curr_inst.rs - curr_inst.rt;
-		}
-	}
-	
-	//MUL operation
-	if (curr_inst.op==MUL){
-		if (EX_Inst_Cycles>=m){
-			curr_inst.EX_result= (int16_t) curr_inst.rs * curr_inst.rt;
-		}
-	}
-	
-	//send instruction to MEM
-	if (EX_MEM_Flag==0){
-		EX_MEM_latch=curr.inst;
-		EX_MEM_Flag=1;
-		EX_Inst_Cycles=0;
-		if (curr_inst.op==MUL) EX_WorkCycles=EX_WorkCycles+m;
-		else if (curr_inst.op!=HALT && curr_inst.op!=MUL) EX_WorkCycles=EX_WorkCycles+n;
-	}
-		
+
+    if((IF_ID_latch.rs != ID_EX_latch.rd || ID_EX_Flag == 0) &&           //This looks complicated but It just checks
+       (IF_ID_latch.rt != ID_EX_latch.rd || ID_EX_Flag == 0) &&          //that I'm not about to read a reg that is a
+       (IF_ID_latch.rs != EX_MEM_latch.rd || EX_MEM_Flag == 0) &&        //destination reg for a instruction further
+       (IF_ID_latch.rt != EX_MEM_latch.rd || EX_MEM_Flag == 0) &&        //down the pipe, IF A FLAG == 0 the assoicated latch is stale and not "in the pipe"
+       (IF_ID_latch.rs != MEM_WB_latch.rd || MEM_WB_Flag == 0) &&         //rd must be set to 32 <= rd <= -1 in previous latch after its copied forward out of EX and MEM
+       (IF_ID_latch.rt != MEM_WB_latch.rd || MEM_WB_Flag == 0))           //If Flag=0 then Write has happened and r/w can happen same cycle
+    {
+        if(IF_ID_latch.op == BEQ && ID_EX_latch.op != BEQ && ID_EX_Flag == 0 && IF_ID_Flag == 1) //If Its a branch, yet to move forward, EX is ready,IF fetched
+        {
+            ++ID_WorkCycles;                                                 //1 cycle of work
+            ID_EX_latch = IF_ID_latch;                                       //Copy to ex recieve latch
+            ID_EX_latch.rs = Registers[ID_EX_latch.rs];
+            ID_EX_latch.rt = Registers[ID_EX_latch.rt];                       //fill struct with reg data for ex
+            ID_EX_Flag = 1;                                                  //Tell EX its a go on the next cycle
+            BeqTimer = n + 1;                                                //Cycles EX reqires to resolve BEQ, could be off - 1 or -2
+        }
+        else if (BeqTimer != 0)   //Its a BEQ that has been moved forward but IF is/was waiting on proper PC
+        {
+            if(BeqTimer != 1)
+            {
+                --BeqTimer; 	                                  //keep counting down
+            }
+            else
+            {
+                IF_ID_Flag = 0;                //Program counter is set, so IF can fetch
+                --BeqTimer;                    //Set back to 0
+                ID_EX_latch.op = DEADBEQ; //Needed incase of 2+ BEQ in a row, but since BEQ terminates in EX it won't go anywhere
+            }
+        }
+        else if(IF_ID_latch.op == ADD && ID_EX_Flag == 0 && IF_ID_Flag == 1) //If its an add and Ex is ready and IF fetched last cycle
+        {
+            ++ID_WorkCycles;                               //Doing work
+            ID_EX_latch = IF_ID_latch;                     //Copy it forward
+            ID_EX_latch.rs = Registers[ID_EX_latch.rs];    //replace register #s with the data inside them
+            ID_EX_latch.rt = Registers[ID_EX_latch.rt];
+            ID_EX_Flag = 1;                                //Tell EX that next cycle is greenlight
+            IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
+        }
+        else if(IF_ID_latch.op == ADDI && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+        {
+            ++ID_WorkCycles;                               //Record work done
+            ID_EX_latch = IF_ID_latch;                     //Copy it forward
+            ID_EX_latch.rs = Registers[ID_EX_latch.rs];    //Only the rs reg, both rd and rt are the destination reg for addi
+            ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
+            IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
+        }
+        else if(IF_ID_latch.op == SUB && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+        {
+            ++ID_WorkCycles;                               //Doing work
+            ID_EX_latch = IF_ID_latch;                     //Copy it forward
+            ID_EX_latch.rs = Registers[ID_EX_latch.rs];    //replace register #s with the data inside them
+            ID_EX_latch.rt = Registers[ID_EX_latch.rt];
+            ID_EX_Flag = 1;                                //Tell EX that next cycle is greenlight
+            IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
+        }
+        else if(IF_ID_latch.op == LW && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+        {
+            ++ID_WorkCycles;                               //Record work done
+            ID_EX_latch = IF_ID_latch;                     //Copy it forward
+            ID_EX_latch.rs = Registers[ID_EX_latch.rs];    //Only the rs reg, used with immediate by EX and MEM
+            //use rt or rd for destination
+            ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
+            IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
+        }
+        else if(IF_ID_latch.op == SW && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+        {
+            ++ID_WorkCycles;                               //Record work done
+            ID_EX_latch = IF_ID_latch;                     //Copy it forward
+            ID_EX_latch.rs = Registers[ID_EX_latch.rs];    //rs is used by EX along with immediate to get memory address
+            ID_EX_latch.rt = Registers[ID_EX_latch.rt];    //rt is use by MEM as it is the data to be written into memory
+            ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
+            IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
+        }
+        else if(IF_ID_latch.op == MUL && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+        {
+            ++ID_WorkCycles;                               //Doing work
+            ID_EX_latch = IF_ID_latch;                     //Copy it forward
+            ID_EX_latch.rs = Registers[ID_EX_latch.rs];    //replace register #s with the data inside them
+            ID_EX_latch.rt = Registers[ID_EX_latch.rt];
+            ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
+            IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
+        }
+        else if(IF_ID_latch.op == HALT && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+        {
+            ID_EX_latch = IF_ID_latch;                     //Copy it forward
+            ID_EX_Flag = 1;                                //Tell EX that next cycle it can recieve
+        }
+        //If none of the above conditions are met other stages are busy or not a valid opcode (wait)
+    }
+    //If theres a RAW hazard do nothing (wait)
+
 }
 
-// TODO
-void MEM(void) {}
+void EX() {
+    struct inst curr_inst;
 
-// TODO
-void WB(void) {}
+    if(ID_EX_Flag==1 && EX_Inst_Cycles==0){
+        curr_inst = ID_EX_latch;
+        ID_EX_Flag=0;
+    } else return;
+
+    EX_Inst_Cycles++;
+
+    // ADD operation
+    if (curr_inst.op==ADD){
+        if (EX_Inst_Cycles>=n){
+            curr_inst.EX_result= curr_inst.rs + curr_inst.rt;
+        }
+    }
+
+    // ADDI operation
+    if (curr_inst.op==ADDI){
+        if (EX_Inst_Cycles>=n){
+            curr_inst.EX_result= curr_inst.rs + curr_inst.immediate;
+        }
+    }
+
+    //BEQ operation
+    if (curr_inst.op==BEQ){
+        if (EX_Inst_Cycles>=n){
+            curr_inst.EX_result= curr_inst.rt - curr_inst.rs;
+            if (curr_inst.EX_result==0) PC = PC + 4 * (curr_inst.immediate);
+        }
+    }
+
+    //LW and SW operation, not sure how to do this
+    if (curr_inst.op==LW || curr_inst.op==SW){
+        if (EX_Inst_Cycles>=n){
+            curr_inst.EX_result= curr_inst.rs + curr_inst.immediate;
+        }
+    }
+
+    //SUB operation
+    if (curr_inst.op==SUB){
+        if (EX_Inst_Cycles>=n){
+            curr_inst.EX_result= curr_inst.rs - curr_inst.rt;
+        }
+    }
+
+    //MUL operation
+    if (curr_inst.op==MUL){
+        if (EX_Inst_Cycles>=m){
+            curr_inst.EX_result= curr_inst.rs * curr_inst.rt;
+        }
+    }
+
+    //send instruction to MEM
+    if (EX_MEM_Flag==0){
+        EX_MEM_latch=curr_inst;
+        EX_MEM_Flag=1;
+        EX_Inst_Cycles=0;
+        if (curr_inst.op==MUL) EX_WorkCycles=EX_WorkCycles+m;
+        else if (curr_inst.op!=HALT && curr_inst.op!=MUL) EX_WorkCycles=EX_WorkCycles+n;
+    }
+
+}
+
+void MEM()
+{
+    static int MEM_Timer = 0;
+    if(EX_MEM_Flag == 1)                      //If latch is ready i can start working, *WRITEBACK* can never hold this up as WB only takes 1 Cycle
+    {
+        if(EX_MEM_latch.op == SW)          //if its a store word
+        {
+            if(MEM_Timer == 0)                    //first cycle of a SW
+            {
+                MEM_Timer = c; //start timer        //This is how many cycles it will take
+                ++MEM_WorkCycles;                //I've started so first cycle of work
+            }
+            if(MEM_Timer != 0 && MEM_Timer != 1)  //Mid operation, not done, but working
+            {
+                --MEM_Timer;
+                ++MEM_WorkCycles;
+            }
+            if(MEM_Timer == 1)                   //Last cycle
+            {
+                --MEM_Timer;                       //timer back to zero
+                DM[EX_MEM_latch.EX_result >> 2] = EX_MEM_latch.rt;   //store rt where EX has calculated it should go
+                // no need to pass it on, it finishes here.
+
+                EX_MEM_Flag = 0;                   // EX can fill it again
+            }
+        }
+        if(EX_MEM_latch.op == LW)         //if its a Load word
+        {
+            if(MEM_Timer == 0)                    //first cycle of a LW
+            {
+                MEM_Timer = c; //start timer        //This is how many cycles it will take
+                ++MEM_WorkCycles;                //I've started so first cycle of work
+            }
+            if(MEM_Timer != 0 && MEM_Timer != 1)  //Mid operation, not done, but working
+            {
+                --MEM_Timer;
+                ++MEM_WorkCycles;
+            }
+            if(MEM_Timer == 1)                   //Last cycle
+            {
+                --MEM_Timer;                       //timer back to zero
+                MEM_WB_latch = EX_MEM_latch;       // no need to check the flag, WB cannot delay the pipe EVER (nice!:))
+                MEM_WB_latch.EX_result = DM[EX_MEM_latch.EX_result >> 2];   //go to location calculated by EX and copy the value found into rt
+                //could leave it in rd if it make WB any easier
+                MEM_WB_Flag = 1;                   //Still i think ID uses the flag for RAW checks
+                EX_MEM_Flag = 0;                   // EX can fill it again
+            }
+        }
+        else                                   //something is in the latch but i don't care what, i'll pass it on
+        {
+            MEM_WB_latch = EX_MEM_latch;         //move intruction forward (do nothing to it)
+            EX_MEM_Flag = 0;                     //EX can fill it again
+            MEM_WB_Flag = 1;                     //WB has work now
+        }
+    }
+}
+
+void WB()
+{
+    //Note: SW is done in MEM I think so it's not included
+    if(MEM_WB_Flag == 1) //If there is new info...
+    {
+        if(MEM_WB_latch.op == HALT) //If HALT,
+        {
+            WB_HALT_Flag = 1; //set halt flag and do nothing else
+        }
+        else if(MEM_WB_latch.op == ADD) //if ADD use [RD]
+        {
+            Registers[MEM_WB_latch.rd] = MEM_WB_latch.EX_result;
+            WB_WorkCycles++; //increase useful counter
+        }
+        else if(MEM_WB_latch.op == ADDI) //if ADDI use [RT]
+        {
+            Registers[MEM_WB_latch.rt] = MEM_WB_latch.EX_result;
+            WB_WorkCycles++;
+        }
+        else if(MEM_WB_latch.op == SUB) //if SUB use [RD]
+        {
+            Registers[MEM_WB_latch.rd] = MEM_WB_latch.EX_result;
+            WB_WorkCycles++;
+        }
+        else if(MEM_WB_latch.op == MUL) //if MULT use [RD]
+        {
+            Registers[MEM_WB_latch.rd] = MEM_WB_latch.EX_result;
+            WB_WorkCycles++;
+        }
+        else if(MEM_WB_latch.op == LW) //if LW use [RT]
+        {
+            Registers[MEM_WB_latch.rt] = MEM_WB_latch.EX_result;
+            WB_WorkCycles++;
+        }
+        //SW is done in MEM
+    }
+
+    MEM_WB_Flag = 0; //WB work is done
+
+}
 
 /* ==================== Helper Function Implementations ===================== */
+// reads in all the instruction in a file
+// NOTE: if the input file doesn't end with "haltSimulation", this will loop
+// infinitely
+static void populateIM(FILE *input) {
+    int tempPc = 0; // temporary "program counter" to fill
+    char buffer[100]; // buffer to read instructions into
+    char *result;
+    struct inst inst;
+
+    while (1) {
+        // ignore blank lines
+        if (*(result = progScanner(input, buffer)) == '\n') continue;
+        // parse and free
+        inst = parser(result);
+        free(result);
+        // ignore comments
+        if (inst.op == COMMENT) {
+            continue;
+        }
+        // update IM
+        IM[tempPc++] = inst;
+        if (IM[tempPc - 1].op == HALT) break; // stop after we've stored halt
+    }
+}
+
 // converts a string of a register name to a register token
 static char *getRegNumber(char *token, char *base, char *original) {
     ++token; // skip the "$"
@@ -497,7 +796,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     sprintf(result, "%d", 0);
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
-                            token - base, token);
+                               token - base, token);
                 }
                 break;
             case 'a': // "at" or "a0-a3"
@@ -509,7 +808,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     sprintf(result, "%d", 4 + (*token - '0'));
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
-                            token - base - 1, token - 1);
+                               token - base - 1, token - 1);
                 }
                 break;
             case 'v': // "v0 or v1"
@@ -519,7 +818,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     sprintf(result, "%d", 2 + (*token - '0'));
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
-                            token - base - 1, token - 1);
+                               token - base - 1, token - 1);
                 }
                 break;
             case 't': // "t0-t7" or "t8-t9"
@@ -532,7 +831,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     sprintf(result, "%d", 8 + (*token - '0'));
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
-                            token - base - 1, token - 1);
+                               token - base - 1, token - 1);
                 }
                 break;
             case 's': // "s0-s7" or "sp"
@@ -544,7 +843,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     sprintf(result, "%d", 16 + (*token - '0'));
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
-                            token - base - 1, token - 1);
+                               token - base - 1, token - 1);
                 }
                 break;
             case 'k': // "k0-k1"
@@ -554,7 +853,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     sprintf(result, "%d", 26 + (*token - '0'));
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
-                            token - base - 1, token - 1);
+                               token - base - 1, token - 1);
                 }
                 break;
             case 'g': // "gp"
@@ -562,7 +861,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     sprintf(result, "%d", 28);
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
-                            token - base - 1, token - 1);
+                               token - base - 1, token - 1);
                 }
                 break;
             case 'f': // "fp"
@@ -570,7 +869,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     sprintf(result, "%d", 30);
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
-                            token - base, token);
+                               token - base, token);
                 }
                 break;
             case 'r': // "ra"
@@ -578,12 +877,12 @@ static char *getRegNumber(char *token, char *base, char *original) {
                     sprintf(result, "%d", 31);
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
-                            token - base, token);
+                               token - base, token);
                 }
                 break;
             default:
                 PARSER_ERR("invalid register number: %s", original,
-                        token - base, token);
+                           token - base, token);
         }
 
         return result;
@@ -594,7 +893,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
 static enum inst_op getOp(char *instruction) {
     switch (*instruction) {
         case 'h': // "haltSimulation"
-            if (strcmp("haltSimulation", instruction) != 0) {
+            if (strstr(instruction, "haltSimulation") == NULL) {
                 return ERR;
             } else {
                 return HALT;
@@ -630,6 +929,8 @@ static enum inst_op getOp(char *instruction) {
                 return SUB;
             }
             return ERR;
+        case '#': // # a comment
+            return COMMENT;
         default:
             return ERR;
     }
@@ -655,7 +956,7 @@ static enum inst_type getInstType(enum inst_op op) {
 
 // parses an R-Type instruction of the form (op rd rs rt), exiting upon error
 static void parseRType(struct inst *inst, char *converted,
-        char *remainingTokens) {
+                       char *remainingTokens) {
     if (!isdigit(*remainingTokens)) {
         PARSER_ERR("expected a digit for rd, found: %s", converted,
                    remainingTokens - converted, strtok(remainingTokens, " "));
@@ -669,7 +970,7 @@ static void parseRType(struct inst *inst, char *converted,
                    remainingTokens - converted, strtok(remainingTokens, " "));
     }
     inst->rs = (uint16_t) Strtol(&remainingTokens, 0, 31, converted,
-            remainingTokens - converted);
+                                 remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens)) {
@@ -677,12 +978,12 @@ static void parseRType(struct inst *inst, char *converted,
                    remainingTokens - converted, remainingTokens);
     }
     inst->rt = (uint16_t) Strtol(&remainingTokens, 0, 31, converted,
-            remainingTokens - converted);
+                                 remainingTokens - converted);
 }
 
- // delegates to an appropriate method for the given instruction
+// delegates to an appropriate method for the given instruction
 static void parseIType(struct inst *inst, char *converted,
-        char *remainingTokens) {
+                       char *remainingTokens) {
     switch (inst->op) {
         case ADDI:
             parseAddi(inst, converted, remainingTokens);
@@ -696,18 +997,18 @@ static void parseIType(struct inst *inst, char *converted,
             break;
         default:
             PARSER_ERR("unrecognized instruction", converted,
-                    remainingTokens - converted);
+                       remainingTokens - converted);
     }
 }
 
 // parses an addi instruction of the form (addi rd rs imm), exiting upon error
 static void parseAddi(struct inst *inst, char *converted,
-        char *remainingTokens) {
+                      char *remainingTokens) {
     if (!isdigit(*remainingTokens)) {
-        PARSER_ERR("expected a digit for rd, found: %s", converted,
+        PARSER_ERR("expected a digit for rt, found: %s", converted,
                    remainingTokens - converted, strtok(remainingTokens, " "));
     }
-    inst->rd = (uint8_t) Strtol(&remainingTokens, 0, 31, converted,
+    inst->rt = (uint8_t) Strtol(&remainingTokens, 0, 31, converted,
                                 remainingTokens - converted);
     ++remainingTokens;
 
@@ -716,7 +1017,7 @@ static void parseAddi(struct inst *inst, char *converted,
                    remainingTokens - converted, strtok(remainingTokens, " "));
     }
     inst->rs = (uint16_t) Strtol(&remainingTokens, 0, 31, converted,
-            remainingTokens - converted);
+                                 remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens) || *remainingTokens == '-') {
@@ -724,18 +1025,18 @@ static void parseAddi(struct inst *inst, char *converted,
                    remainingTokens - converted, remainingTokens);
     }
     inst->immediate = (int16_t) Strtol(&remainingTokens, INT16_MIN, INT16_MAX,
-            converted, remainingTokens - converted);
+                                       converted, remainingTokens - converted);
 }
 
 // parses a beq instruction of the form (beq rt rs offset), exiting upon error
 static void parseBeq(struct inst *inst, char *converted,
-        char *remainingTokens) {
+                     char *remainingTokens) {
     if (!isdigit(*remainingTokens)) {
         PARSER_ERR("expected a digit for rt, found: %s", converted,
                    remainingTokens - converted, strtok(remainingTokens, " "));
     }
     inst->rt = (uint16_t) Strtol(&remainingTokens, 0, 31, converted,
-            remainingTokens - converted);
+                                 remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens)) {
@@ -743,7 +1044,7 @@ static void parseBeq(struct inst *inst, char *converted,
                    remainingTokens - converted, strtok(remainingTokens, " "));
     }
     inst->rs = (uint16_t) Strtol(&remainingTokens, 0, 31, converted,
-            remainingTokens - converted);
+                                 remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens) || *remainingTokens == '-') {
@@ -751,18 +1052,18 @@ static void parseBeq(struct inst *inst, char *converted,
                    remainingTokens - converted, remainingTokens);
     }
     inst->immediate = (int16_t) Strtol(&remainingTokens, INT16_MIN, INT16_MAX,
-            converted, remainingTokens - converted);
+                                       converted, remainingTokens - converted);
 }
 
 // parses a lw/sw instruction of the form (lw/sw rt offset rs), exiting upon error
 static void parseLwSw(struct inst *inst, char *converted,
-        char *remainingTokens) {
+                      char *remainingTokens) {
     if (!isdigit(*remainingTokens)) {
         PARSER_ERR("expected a digit for rt, found: %s", converted,
                    remainingTokens - converted, strtok(remainingTokens, " "));
     }
     inst->rt = (uint16_t) Strtol(&remainingTokens, 0, 31, converted,
-            remainingTokens - converted);
+                                 remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens)) {
@@ -770,11 +1071,7 @@ static void parseLwSw(struct inst *inst, char *converted,
                    remainingTokens - converted, strtok(remainingTokens, " "));
     }
     inst->immediate = (int16_t) Strtol(&remainingTokens, INT16_MIN, INT16_MAX,
-            converted, remainingTokens - converted);
-    // assert that memory access is aligned to 4
-    if (inst->immediate & 0x3) {
-        PARSER_ERR("misaligned memory access", converted, 0);
-    }
+                                       converted, remainingTokens - converted);
     ++remainingTokens;
 
     if (!isdigit(*remainingTokens)) {
@@ -782,7 +1079,12 @@ static void parseLwSw(struct inst *inst, char *converted,
                    remainingTokens - converted, remainingTokens);
     }
     inst->rs = (uint16_t) Strtol(&remainingTokens, 0, 31, converted,
-            remainingTokens - converted);
+                                 remainingTokens - converted);
+
+    // assert that memory access is aligned to 4
+    if ((inst->immediate) & 0x3) {
+        PARSER_ERR("misaligned memory access", converted, 0);
+    }
 }
 
 // wrapper for strtol tht handles errors and range checking
@@ -792,7 +1094,7 @@ static long Strtol(char **numStr, int min, int max, char *inst, long col) {
 
     if (errno == ERANGE || num == LONG_MAX || num == LONG_MIN) {
         PARSER_ERR("couldn't parse number: %s", inst, col,
-                strtok(*numStr, " "));
+                   strtok(*numStr, " "));
     }
 
     // range check
@@ -827,7 +1129,7 @@ static void parserErr(const char *function, int line, const char *msg,
 
 // delegates to an appropriate validation method, which exits if instruction is invalid
 static void validate(const char *instruction, enum inst_op op,
-        enum inst_type type) {
+                     enum inst_type type) {
     if (type == R_TYPE) validateRType(instruction);
     else if (type == I_TYPE) validateIType(instruction, op);
 }
@@ -838,7 +1140,7 @@ static void validateRType(const char *instruction) {
     char *cur = strchr(instruction, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing rd, rs, and rt",
-                instruction, 0);
+                   instruction, 0);
     }
 
     // each of the next three operands should be registers (i.e. start with '$')
@@ -850,7 +1152,7 @@ static void validateRType(const char *instruction) {
     cur = strchr(cur + 1, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing rs and rt",
-                instruction, 0);
+                   instruction, 0);
     }
 
     if (*(cur + 1) != '$') {
@@ -861,7 +1163,7 @@ static void validateRType(const char *instruction) {
     cur = strchr(cur + 1, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing rt", instruction,
-                0);
+                   0);
     }
 
     if (*(cur + 1) != '$') {
@@ -898,7 +1200,7 @@ static void validateAddiBeq(const char *instruction) {
 
     if (*(cur + 1) != '$') {
         PARSER_ERR("malformed register for rd/rs", instruction,
-                cur + 1 - instruction);
+                   cur + 1 - instruction);
     }
 
     cur = strchr(cur + 1, ' ');
@@ -909,7 +1211,7 @@ static void validateAddiBeq(const char *instruction) {
 
     if (*(cur + 1) != '$') {
         PARSER_ERR("malformed register for rs", instruction,
-                cur + 1 - instruction);
+                   cur + 1 - instruction);
     }
 
     cur = strchr(cur + 1, ' ');
