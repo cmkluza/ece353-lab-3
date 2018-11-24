@@ -3,7 +3,7 @@ Void MEM()
   Static int MEM_Timer = 0;
   if(EX_MEM_Flag == 1)                      //If latch is ready i can start working, *WRITEBACK* can never hold this up as WB only takes 1 Cycle
   {
-    if(EX_MEM_latch.inst_op == SW)          //if its a store word
+    if(EX_MEM_latch.op == SW)          //if its a store word
     {
       if(MEM_Timer == 0)                    //first cycle of a SW
       {
@@ -24,7 +24,7 @@ Void MEM()
         EX_MEM_Flag = 0;                   // EX can fill it again
       }
     }
-     if(EX_MEM_latch.inst_op == LW)         //if its a Load word
+     if(EX_MEM_latch.op == LW)         //if its a Load word
     {
       if(MEM_Timer == 0)                    //first cycle of a LW
       {
