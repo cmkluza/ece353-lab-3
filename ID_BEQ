@@ -3,7 +3,7 @@ void ID()
 {
 	Static int BeqTimer = 0;                                              //holds a timer for BEQ hazard avoidance 
 	
-	if(IF_ID_latch.inst_op == LW || IF_ID_latch.inst_op == ADDI)
+	if(IF_ID_latch.op == LW || IF_ID_latch.op == ADDI)
 	{                                                                      //This doesn't change any reg data, just holds reg # 
 		IF_ID_latch.rd = IF_ID_latch.rt;                               //makes RAW check simpler and rd isn't being used anyways, exists in both fields
 	}                                                                     //this will redunantly copy if pipe is stalled but won't hurt anything
@@ -16,7 +16,7 @@ void ID()
 	   (IF_ID_latch.rs != MEM_WB_latch.rd || MEM_WB_Flag == 0) &&         //rd must be set to 32 <= rd <= -1 in previous latch after its copied forward out of EX and MEM
 	   (IF_ID_latch.rt != MEM_ WB_latch.rd || MEM_WB_Flag == 0))           //If Flag=0 then Write has happened and r/w can happen same cycle
 	{
-		if(IF_ID_latch.inst_op == BEQ && ID_EX_latch.inst_op != BEQ && ID_EX_Flag == 0 && IF_ID_Flag == 1) //If Its a branch, yet to move forward, EX is ready,IF fetched
+		if(IF_ID_latch.op == BEQ && ID_EX_latch.op != BEQ && ID_EX_Flag == 0 && IF_ID_Flag == 1) //If Its a branch, yet to move forward, EX is ready,IF fetched
 		{
 			++ID_WorkCycles;                                                 //1 cycle of work
 			ID_EX_Latch = IF_ID_Latch;                                       //Copy to ex recieve latch
@@ -35,10 +35,10 @@ void ID()
 			{
 				IF_ID_Flag = 0;                //Program counter is set, so IF can fetch
                         	--BeqTimer;                    //Set back to 0 
-				ID_EX_latch.inst_op = DEADBEQ; //Needed incase of 2+ BEQ in a row, but since BEQ terminates in EX it won't go anywhere
+				ID_EX_latch.op = DEADBEQ; //Needed incase of 2+ BEQ in a row, but since BEQ terminates in EX it won't go anywhere
 			}
 		}
-		else if(IF_ID_latch.inst_op == ADD && ID_EX_Flag == 0 && IF_ID_Flag == 1) //If its an add and Ex is ready and IF fetched last cycle
+		else if(IF_ID_latch.op == ADD && ID_EX_Flag == 0 && IF_ID_Flag == 1) //If its an add and Ex is ready and IF fetched last cycle
 		{
 			++ID_WorkCycles;                               //Doing work
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
@@ -47,7 +47,7 @@ void ID()
 			ID_EX_Flag = 1;                                //Tell EX that next cycle is greenlight
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
-		else if(IF_ID_latch.inst_op == ADDI && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+		else if(IF_ID_latch.op == ADDI && ID_EX_Flag == 0 && IF_ID_Flag == 1)
 		{
 			++ID_WorkCycles;                               //Record work done
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
@@ -55,7 +55,7 @@ void ID()
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
-		else if(IF_ID_latch.inst_op == SUB && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+		else if(IF_ID_latch.op == SUB && ID_EX_Flag == 0 && IF_ID_Flag == 1)
 		{
 			++ID_WorkCycles;                               //Doing work
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
@@ -64,7 +64,7 @@ void ID()
 			ID_EX_Flag = 1;                                //Tell EX that next cycle is greenlight
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
-		else if(IF_ID_latch.inst_op == LW && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+		else if(IF_ID_latch.op == LW && ID_EX_Flag == 0 && IF_ID_Flag == 1)
 		{
 			++ID_WorkCycles;                               //Record work done
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
@@ -73,7 +73,7 @@ void ID()
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
-		else if(IF_ID_latch.inst_op == SW && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+		else if(IF_ID_latch.op == SW && ID_EX_Flag == 0 && IF_ID_Flag == 1)
 		{
 			++ID_WorkCycles;                               //Record work done
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
@@ -82,7 +82,7 @@ void ID()
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
-		else if(IF_ID_latch.inst_op == MUL && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+		else if(IF_ID_latch.op == MUL && ID_EX_Flag == 0 && IF_ID_Flag == 1)
 		{
 			++ID_WorkCycles;                               //Doing work
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
@@ -91,7 +91,7 @@ void ID()
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can start
 			IF_ID_Flag = 0;                                //Tell IF the latch is clear to be overwritten
 		}
-		else if(IF_ID_latch.inst_op == HALT && ID_EX_Flag == 0 && IF_ID_Flag == 1)
+		else if(IF_ID_latch.op == HALT && ID_EX_Flag == 0 && IF_ID_Flag == 1)
 		{
 			ID_EX_latch = IF_ID_latch;                     //Copy it forward
 			ID_EX_Flag = 1;                                //Tell EX that next cycle it can recieve
