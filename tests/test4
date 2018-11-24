@@ -1,1 +1,2 @@
 ./sim-mips -b 1 1 1 ./tests/asm/test4.s ./tests/out/test4.out
+./tests/sols/test4.sol

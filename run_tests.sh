@@ -3,7 +3,7 @@
 # the directory with the test files
 TEST_DIR=./tests
 # number of tests in the testing directory
-declare -r NUM_TESTS=4
+declare -r NUM_TESTS=8
 
 if [[ -d "$TEST_DIR" ]]; then
     echo -e "\e[38;5;27mStarting tests...\e[0m"
@@ -13,9 +13,13 @@ if [[ -d "$TEST_DIR" ]]; then
             echo -e "\e[38;5;27m========== Test ${i} ==========\e[0m"
 
             TEST_FILE=${TEST_DIR}/test${i} #test{i}, the command to run
-            TEST_ASM=${TEST_DIR}/asm/test${i}.s
-            TEST_SOL=${TEST_DIR}/sols/test${i}.sol #test{i}.sol, the expected solution
-            TEST_OUT=${TEST_DIR}/out/test${i}.out #test{i}.out, the program output
+            # the first line contains the program info
+            FIRST_LINE=`cat ${TEST_FILE} | awk 'FNR==1{printf $0}'`
+            # the input and output files are the 6th and 7th args to the program
+            TEST_ASM=`echo ${FIRST_LINE} | awk '{printf $6}'`
+            TEST_OUT=`echo ${FIRST_LINE} | awk '{printf $7}'`
+            # the second line contains the solution file
+            TEST_SOL=`cat ${TEST_FILE} | awk 'FNR==2{printf $0}'`
 
             # stop if we're missing files
             if [[ ! -f ${TEST_SOL} ]]; then
@@ -24,7 +28,7 @@ if [[ -d "$TEST_DIR" ]]; then
                 exit 1
             fi
 
-            COMMAND=(`cat ${TEST_FILE}`)
+            COMMAND=(`echo ${FIRST_LINE}`)
             "${COMMAND[@]}" # run the script
             # build the output
             MIDDLE_LINE=`cat ${TEST_OUT} | awk 'FNR==2{ print $0 }'`
