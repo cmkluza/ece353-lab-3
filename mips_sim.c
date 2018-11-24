@@ -219,6 +219,32 @@ static int m; // number of cycles for multiply
 static int n; // number of cycles for all other EX operations
 static int c; // number of cycles for memory access
 
+// TODO remove
+const char *opToStr(enum inst_op op) {
+    switch (op) {
+        case ADD: return "add";
+        case ADDI: return "addi";
+        case BEQ: return "beq";
+        case LW: return "lw";
+        case MUL: return "mul";
+        case SUB: return "sub";
+        case SW: return "sw";
+        case HALT: return "haltSimulation";
+        default: return "err";
+    }
+}
+
+void printInst(struct inst *inst) {
+    if (inst->op == ERR)
+        return;
+    printf("Op: %s\n"
+           "\trd: %d\n"
+           "\trt: %d\n"
+           "\trs: %d\n"
+           "\timm: %d\n",
+           opToStr(inst->op), inst->rd, inst->rt, inst->rs, inst->immediate);
+}
+
 /* ============================== Main Function ============================= */
 int main(int argc, char *argv[]) {
     // given variables
@@ -272,10 +298,19 @@ int main(int argc, char *argv[]) {
     /* ========== IM Initialization ========== */
     populateIM(input);
 
+    // TODO remove
+//    printf("Post-population\n");
+//    for (i = 0; i < 512; ++i) {
+//        printInst(&IM[i]);
+//        if (IM[i].type == HALT) break;
+//    }
+
     /* ========== Main Program Loop ========== */
     while (1) {
         // stop once halt has passed through every stage
         if (WB_HALT_Flag) break;
+
+        printf("pc == %ld\n", PC);
 
         // call each stage in reverse
         WB();
@@ -285,15 +320,15 @@ int main(int argc, char *argv[]) {
         IF();
 
         /* ========== code fragment 2 ========== */
-        if (sim_mode == SINGLE) {
-            printf("cycle: %ld register value: ", sim_cycle);
-            for (i = 1; i < REG_NUM; i++) {
-                printf("%d  ", Registers[i]);
-            }
-            printf("\nprogram counter: %ld\n", PC);
-            printf("press ENTER to continue\n");
-            while (getchar() != '\n');
-        }
+//        if (sim_mode == SINGLE) {
+//            printf("cycle: %ld register value: ", sim_cycle);
+//            for (i = 1; i < REG_NUM; i++) {
+//                printf("%d  ", Registers[i]);
+//            }
+//            printf("\nprogram counter: %ld\n", PC);
+//            printf("press ENTER to continue\n");
+//            while (getchar() != '\n');
+//        }
 
         sim_cycle += 1;
     }
@@ -592,14 +627,18 @@ void ID()
 }
 
 void EX() {
+    // TODO ?
     struct inst curr_inst;
 
+    // TODO removed that return
     if(ID_EX_Flag==1 && EX_Inst_Cycles==0){
         curr_inst = ID_EX_latch;
         ID_EX_Flag=0;
-    } else return;
+    }
 
     EX_Inst_Cycles++;
+
+
 
     // ADD operation
     if (curr_inst.op==ADD){
@@ -645,7 +684,8 @@ void EX() {
     }
 
     //send instruction to MEM
-    if (EX_MEM_Flag==0){
+    // TODO adding additional checks here
+    if (EX_MEM_Flag==0 && ((curr_inst.op == MUL && EX_Inst_Cycles >= m) || (curr_inst.op != MUL && EX_Inst_Cycles >= n))){
         EX_MEM_latch=curr_inst;
         EX_MEM_Flag=1;
         EX_Inst_Cycles=0;
