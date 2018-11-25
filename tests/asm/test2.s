@@ -1,6 +1,4 @@
-# this program will test 'ADD', 'SUB', and 'MUL' with no errors, and with
-# m = c = n = 1
-
+# this program will test 'ADD', 'SUB', and 'MUL' with no errors
 # add $d, $s, $t -> $d = $s + $t
 # mul $d, $s, $t -> $d = $s * $t
 # sub $d, $s, $t -> $d = $s - $t

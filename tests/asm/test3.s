@@ -1,7 +1,5 @@
-# this program will test 'LW' and 'SW' with no errors, and with
-# m = c = n = 1
+# this program will test 'LW' and 'SW' with no errors
 # note: memory accessses *must* be word-aligned
-
 # lw $t, offset($s) -> $t = MEM[$s + offset]
 # sw $t, offset($s) -> MEM[$s + offset] = $t
 

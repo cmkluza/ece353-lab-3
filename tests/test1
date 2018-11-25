@@ -1,2 +1,3 @@
+Tests ADDI without errors, with m = n = c = 1
 ./sim-mips -b 1 1 1 ./tests/asm/test1.s ./tests/out/test1.out
 ./tests/sols/test1.sol

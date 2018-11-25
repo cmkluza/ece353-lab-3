@@ -1,6 +1,4 @@
-# this program will test 'BEQ' with no errors, and with
-# m = c = n = 1
-
+# this program will test 'BEQ' with no errors
 # beq $t, $s, offset
 
 # load initial values into temp registers

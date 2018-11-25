@@ -3,23 +3,26 @@
 # the directory with the test files
 TEST_DIR=./tests
 # number of tests in the testing directory
-declare -r NUM_TESTS=8
+declare -r NUM_TESTS=9
 
 if [[ -d "$TEST_DIR" ]]; then
     echo -e "\e[38;5;27mStarting tests...\e[0m"
     for ((i=1; i<=$NUM_TESTS; i++)); do
         if [[ -f "$TEST_DIR/test$i" ]]; then
-            echo ""
-            echo -e "\e[38;5;27m========== Test ${i} ==========\e[0m"
+            # read info from the file
+            TEST_FILE=${TEST_DIR}/test${i} #test{i}, the test to run
+            # description is first line
+            DESCRIPTION=`cat ${TEST_FILE} | awk 'FNR==1{printf $0}'`
+            # program parameters are the second line
+            PARAMS=`cat ${TEST_FILE} | awk 'FNR==2{printf $0}'`
+            # extract input (asm) and output file from parameters
+            TEST_ASM=`echo ${PARAMS} | awk '{printf $6}'`
+            TEST_OUT=`echo ${PARAMS} | awk '{printf $7}'`
+            # the solution file is the third line
+            TEST_SOL=`cat ${TEST_FILE} | awk 'FNR==3{printf $0}'`
 
-            TEST_FILE=${TEST_DIR}/test${i} #test{i}, the command to run
-            # the first line contains the program info
-            FIRST_LINE=`cat ${TEST_FILE} | awk 'FNR==1{printf $0}'`
-            # the input and output files are the 6th and 7th args to the program
-            TEST_ASM=`echo ${FIRST_LINE} | awk '{printf $6}'`
-            TEST_OUT=`echo ${FIRST_LINE} | awk '{printf $7}'`
-            # the second line contains the solution file
-            TEST_SOL=`cat ${TEST_FILE} | awk 'FNR==2{printf $0}'`
+            echo ""
+            echo -e "\e[38;5;27m========== Test ${i}: ${DESCRIPTION} ==========\e[0m"
 
             # stop if we're missing files
             if [[ ! -f ${TEST_SOL} ]]; then
@@ -28,7 +31,7 @@ if [[ -d "$TEST_DIR" ]]; then
                 exit 1
             fi
 
-            COMMAND=(`echo ${FIRST_LINE}`)
+            COMMAND=(`echo ${PARAMS}`)
             "${COMMAND[@]}" # run the script
             # build the output
             MIDDLE_LINE=`cat ${TEST_OUT} | awk 'FNR==2{ print $0 }'`

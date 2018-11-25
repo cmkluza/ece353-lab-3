@@ -1,2 +1,3 @@
+Tests BEQ, with no errors, with m = n = c = 3
 ./sim-mips -b 3 3 3 ./tests/asm/test4.s ./tests/out/test8.out
 ./tests/sols/test4.sol

@@ -1,0 +1,3 @@
+Tests read-after-write (RAW) data hazards without errors, with m = n = c = 2
+./sim-mips -b 2 2 2 ./tests/asm/test9.s ./tests/out/test9.out
+./tests/sols/test9.sol
