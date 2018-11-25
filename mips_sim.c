@@ -126,6 +126,9 @@ void WB(void);
 // populates the instruction memory
 static void populateIM(FILE *input);
 
+// progScanner helper functions
+static void validateParens(const char *instruction);
+
 // regNumberConverter helper functions
 static char *getRegNumber(char *token, char *base, char *original);
 
@@ -219,32 +222,6 @@ static int m; // number of cycles for multiply
 static int n; // number of cycles for all other EX operations
 static int c; // number of cycles for memory access
 
-// TODO remove
-const char *opToStr(enum inst_op op) {
-    switch (op) {
-        case ADD: return "add";
-        case ADDI: return "addi";
-        case BEQ: return "beq";
-        case LW: return "lw";
-        case MUL: return "mul";
-        case SUB: return "sub";
-        case SW: return "sw";
-        case HALT: return "haltSimulation";
-        default: return "err";
-    }
-}
-
-void printInst(struct inst *inst) {
-    if (inst->op == ERR)
-        return;
-    printf("Op: %s\n"
-           "\trd: %d\n"
-           "\trt: %d\n"
-           "\trs: %d\n"
-           "\timm: %d\n",
-           opToStr(inst->op), inst->rd, inst->rt, inst->rs, inst->immediate);
-}
-
 /* ============================== Main Function ============================= */
 int main(int argc, char *argv[]) {
     // given variables
@@ -298,19 +275,10 @@ int main(int argc, char *argv[]) {
     /* ========== IM Initialization ========== */
     populateIM(input);
 
-    // TODO remove
-//    printf("Post-population\n");
-//    for (i = 0; i < 512; ++i) {
-//        printInst(&IM[i]);
-//        if (IM[i].type == HALT) break;
-//    }
-
     /* ========== Main Program Loop ========== */
     while (1) {
         // stop once halt has passed through every stage
         if (WB_HALT_Flag) break;
-
-        printf("pc == %ld\n", PC);
 
         // call each stage in reverse
         WB();
@@ -320,15 +288,15 @@ int main(int argc, char *argv[]) {
         IF();
 
         /* ========== code fragment 2 ========== */
-//        if (sim_mode == SINGLE) {
-//            printf("cycle: %ld register value: ", sim_cycle);
-//            for (i = 1; i < REG_NUM; i++) {
-//                printf("%d  ", Registers[i]);
-//            }
-//            printf("\nprogram counter: %ld\n", PC);
-//            printf("press ENTER to continue\n");
-//            while (getchar() != '\n');
-//        }
+        if (sim_mode == SINGLE) {
+            printf("cycle: %ld register value: ", sim_cycle);
+            for (i = 1; i < REG_NUM; i++) {
+                printf("%d  ", Registers[i]);
+            }
+            printf("\nprogram counter: %ld\n", PC);
+            printf("press ENTER to continue\n");
+            while (getchar() != '\n');
+        }
 
         sim_cycle += 1;
     }
@@ -367,13 +335,17 @@ int main(int argc, char *argv[]) {
 
 /* ======================== Function Implementations ======================== */
 char *progScanner(FILE *inputFile, char *inputLine){
-    fgets(inputLine,100, inputFile);
+    char buffer[100];
+    fgets(buffer, 100, inputFile);
 
-    if (*inputLine == '\n') return "\n"; // blank lines
+    if (*buffer == '\n') return "\n"; // blank liness
 
-    char *givenLine;
-    givenLine = (char*)malloc(100*sizeof(char ));
-    strcpy(givenLine,inputLine); //strtok is destructive so im using a copy instead
+    // if the instruction is sw/lw, this validates parens by the offset
+    validateParens(buffer);
+
+//    char *givenLine;
+//    givenLine = (char*)malloc(100*sizeof(char ));
+//    strcpy(givenLine, buffer); //strtok is destructive so im using a copy instead
 
     int i;
     char delimiters[]={"," "(" ")" ";" "\n" " "};
@@ -383,7 +355,7 @@ char *progScanner(FILE *inputFile, char *inputLine){
     for (i=0; i<4; i++)
         *(instructionFields+i) = (char *) malloc(20*sizeof(char *));
 
-    instructionFields[0] = strtok(givenLine, delimiters);
+    instructionFields[0] = strtok(buffer, delimiters);
 
     if(strcmp(instructionFields[0],"haltSimulation")== 0)
     {
@@ -508,10 +480,10 @@ void IF() {
     curr_inst= IM[PC >> 2];                                       // create local copy of the instruction to be executed
 
     if (IF_ID_Flag==0){                                           // check if latch is empty
-        if (curr_inst.op==HALT){
-            IF_ID_latch= curr_inst;                               // send the halt instruction to the next stage
-            IF_ID_Flag=1;
-        }
+//        if (curr_inst.op==HALT){
+//            IF_ID_latch= curr_inst;                               // send the halt instruction to the next stage
+//            IF_ID_Flag=1;
+//        }
         if (IF_Inst_Cycles>=c){
             IF_ID_latch= curr_inst;                               // send the instruction to the next stage
             PC= PC + 4;                                           // change PC to the next instruction
@@ -627,72 +599,68 @@ void ID()
 }
 
 void EX() {
-    // TODO ?
-    struct inst curr_inst;
+    // work directly with the ID_EX_latch
+    // keep ID_EX_flag = 1 while working with it
+    if (ID_EX_Flag != 1) // stop method if we don't have data to work on
+        return;
 
-    // TODO removed that return
-    if(ID_EX_Flag==1 && EX_Inst_Cycles==0){
-        curr_inst = ID_EX_latch;
-        ID_EX_Flag=0;
-    }
-
+    // increment number of cycles
     EX_Inst_Cycles++;
 
-
-
     // ADD operation
-    if (curr_inst.op==ADD){
+    if (ID_EX_latch.op==ADD){
         if (EX_Inst_Cycles>=n){
-            curr_inst.EX_result= curr_inst.rs + curr_inst.rt;
+            ID_EX_latch.EX_result= ID_EX_latch.rs + ID_EX_latch.rt;
         }
     }
 
     // ADDI operation
-    if (curr_inst.op==ADDI){
+    if (ID_EX_latch.op==ADDI){
         if (EX_Inst_Cycles>=n){
-            curr_inst.EX_result= curr_inst.rs + curr_inst.immediate;
+            ID_EX_latch.EX_result= ID_EX_latch.rs + ID_EX_latch.immediate;
         }
     }
 
     //BEQ operation
-    if (curr_inst.op==BEQ){
+    if (ID_EX_latch.op==BEQ){
         if (EX_Inst_Cycles>=n){
-            curr_inst.EX_result= curr_inst.rt - curr_inst.rs;
-            if (curr_inst.EX_result==0) PC = PC + 4 * (curr_inst.immediate);
+            ID_EX_latch.EX_result= ID_EX_latch.rt - ID_EX_latch.rs;
+            if (ID_EX_latch.EX_result==0) PC = PC + 4 * (ID_EX_latch.immediate);
         }
     }
 
     //LW and SW operation, not sure how to do this
-    if (curr_inst.op==LW || curr_inst.op==SW){
+    if (ID_EX_latch.op==LW || ID_EX_latch.op==SW){
         if (EX_Inst_Cycles>=n){
-            curr_inst.EX_result= curr_inst.rs + curr_inst.immediate;
+            ID_EX_latch.EX_result= ID_EX_latch.rs + ID_EX_latch.immediate;
         }
     }
 
     //SUB operation
-    if (curr_inst.op==SUB){
+    if (ID_EX_latch.op==SUB){
         if (EX_Inst_Cycles>=n){
-            curr_inst.EX_result= curr_inst.rs - curr_inst.rt;
+            ID_EX_latch.EX_result= ID_EX_latch.rs - ID_EX_latch.rt;
         }
     }
 
     //MUL operation
-    if (curr_inst.op==MUL){
+    if (ID_EX_latch.op==MUL){
         if (EX_Inst_Cycles>=m){
-            curr_inst.EX_result= curr_inst.rs * curr_inst.rt;
+            ID_EX_latch.EX_result= ID_EX_latch.rs * ID_EX_latch.rt;
         }
     }
 
     //send instruction to MEM
-    // TODO adding additional checks here
-    if (EX_MEM_Flag==0 && ((curr_inst.op == MUL && EX_Inst_Cycles >= m) || (curr_inst.op != MUL && EX_Inst_Cycles >= n))){
-        EX_MEM_latch=curr_inst;
-        EX_MEM_Flag=1;
-        EX_Inst_Cycles=0;
-        if (curr_inst.op==MUL) EX_WorkCycles=EX_WorkCycles+m;
-        else if (curr_inst.op!=HALT && curr_inst.op!=MUL) EX_WorkCycles=EX_WorkCycles+n;
+    if (EX_MEM_Flag==0 &&
+        ((ID_EX_latch.op == MUL && EX_Inst_Cycles >= m) ||
+         (ID_EX_latch.op != MUL && EX_Inst_Cycles >= n))) {
+        EX_MEM_latch=ID_EX_latch; // move data into the next stage
+        EX_MEM_Flag=1; // tell MEM that there's new data
+        ID_EX_Flag = 0; // tell ID that we're done
+        EX_Inst_Cycles=0; // reset cycle counter
+        if (ID_EX_latch.op==MUL) EX_WorkCycles=EX_WorkCycles+m;
+        else if (ID_EX_latch.op!=HALT && ID_EX_latch.op!=MUL) EX_WorkCycles=EX_WorkCycles+n;
     }
-
 }
 
 void MEM()
@@ -763,27 +731,37 @@ void WB()
         }
         else if(MEM_WB_latch.op == ADD) //if ADD use [RD]
         {
-            Registers[MEM_WB_latch.rd] = MEM_WB_latch.EX_result;
+            // don't overwrite $0
+            if (MEM_WB_latch.rd != 0)
+                Registers[MEM_WB_latch.rd] = MEM_WB_latch.EX_result;
             WB_WorkCycles++; //increase useful counter
         }
         else if(MEM_WB_latch.op == ADDI) //if ADDI use [RT]
         {
-            Registers[MEM_WB_latch.rt] = MEM_WB_latch.EX_result;
+            // don't overwrite $0
+            if (MEM_WB_latch.rt != 0)
+                Registers[MEM_WB_latch.rt] = MEM_WB_latch.EX_result;
             WB_WorkCycles++;
         }
         else if(MEM_WB_latch.op == SUB) //if SUB use [RD]
         {
-            Registers[MEM_WB_latch.rd] = MEM_WB_latch.EX_result;
+            // don't overwrite $0
+            if (MEM_WB_latch.rd != 0)
+                Registers[MEM_WB_latch.rd] = MEM_WB_latch.EX_result;
             WB_WorkCycles++;
         }
         else if(MEM_WB_latch.op == MUL) //if MULT use [RD]
         {
-            Registers[MEM_WB_latch.rd] = MEM_WB_latch.EX_result;
+            // don't overwrite $0
+            if (MEM_WB_latch.rd != 0)
+                Registers[MEM_WB_latch.rd] = MEM_WB_latch.EX_result;
             WB_WorkCycles++;
         }
         else if(MEM_WB_latch.op == LW) //if LW use [RT]
         {
-            Registers[MEM_WB_latch.rt] = MEM_WB_latch.EX_result;
+            // don't overwrite $0
+            if (MEM_WB_latch.rt != 0)
+                Registers[MEM_WB_latch.rt] = MEM_WB_latch.EX_result;
             WB_WorkCycles++;
         }
         //SW is done in MEM
@@ -816,6 +794,51 @@ static void populateIM(FILE *input) {
         // update IM
         IM[tempPc++] = inst;
         if (IM[tempPc - 1].op == HALT) break; // stop after we've stored halt
+    }
+}
+
+// validates parentheses for lw/sw: lw/sw register offset(register)
+static void validateParens(const char *instruction) {
+    // make sure it's a load/store
+    if (*instruction != 'l' && *instruction != 's') return;
+    if (*(instruction + 1) != 'w' ||
+        (*(instruction + 2) != ' ' && *(instruction + 2) != '\0')) return;
+
+    // if there's a comment with parentheses, don't want to count those
+    char *comment = strchr(instruction, '#');
+    char *temp;
+
+    // find the first parenthesis
+    char *result = strchr(instruction, '(');
+
+    if (result == NULL || (comment && result > comment)) { // no opening parenthesis
+        PARSER_ERR("malformed load/store - no opening parenthesis", instruction, 0);
+    }
+    // there should be no additional opening parentheses
+    if ((temp = strchr(result + 1, '(')) != NULL &&
+        (!comment || temp < comment)) {
+        PARSER_ERR("malformed load/store - extra opening parentheses",
+                instruction, temp - instruction);
+    }
+
+    // next should be a register ($ + digits/letters) then a closing paren
+    if (*(++result) != '$') {
+        PARSER_ERR("malformed load/store - misplaced opening parenthesis",
+                instruction, result - instruction);
+    }
+
+    // now look for closing parenthesis
+    if ((result = strchr(instruction, ')')) == NULL ||
+            (comment && result > comment)) {
+        // no closing paren
+        PARSER_ERR("malformed load/store - no closing parenthesis", instruction, 0);
+    }
+
+    // there should be no additional closing parentheses
+    if ((temp = strchr(result + 1, ')')) != NULL &&
+            (!comment || temp < comment)) {
+        PARSER_ERR("malformed load/store - extra closing parentheses",
+                   instruction, temp - instruction);
     }
 }
 
@@ -942,30 +965,41 @@ static enum inst_op getOp(char *instruction) {
             if (*(instruction + 1) != 'd' || *(instruction + 2) != 'd') {
                 return ERR; // operation is invalid
             }
-            if (*(instruction + 3) && *(instruction + 3) == 'i') {
+            if (*(instruction + 3) == 'i' &&
+                    (*(instruction + 4) == ' ' || *(instruction + 4) == '\0')) {
                 return ADDI;
             }
-            return ADD;
+            if (*(instruction + 3) == ' ' || *(instruction + 3) == '\0') {
+                return ADD;
+            } else return ERR;
         case 'b': // "beq"
             if (*(instruction + 1) != 'e' || *(instruction + 2) != 'q') {
                 return ERR;
             }
-            return BEQ;
+            if (*(instruction + 3) == ' ' || *(instruction + 3) == '\0') {
+                return BEQ;
+            } else return ERR;
         case 'l': // "lw"
             if (*(instruction + 1) != 'w') {
                 return ERR;
             }
-            return LW;
+            if (*(instruction + 2) == ' ' || *(instruction + 2) == '\0') {
+                return LW;
+            } else return ERR;
         case 'm': // "mul"
             if (*(instruction + 1) != 'u' || *(instruction + 2) != 'l') {
                 return ERR;
             }
-            return MUL;
+            if (*(instruction + 3) == ' ' || *(instruction + 3) == '\0') {
+                return MUL;
+            } else return ERR;
         case 's': // "sub" or "sw"
-            if (*(instruction + 1) == 'w') {
+            if (*(instruction + 1) == 'w' &&
+                (*(instruction + 2) == ' ' || *(instruction + 2) == '\0')) {
                 return SW;
             }
-            if (*(instruction + 1) == 'u' && *(instruction + 2) == 'b') {
+            if (*(instruction + 1) == 'u' && *(instruction + 2) == 'b'
+                && *(instruction + 3) == ' ' || *(instruction + 3) == '\0') {
                 return SUB;
             }
             return ERR;
@@ -1060,7 +1094,7 @@ static void parseAddi(struct inst *inst, char *converted,
                                  remainingTokens - converted);
     ++remainingTokens;
 
-    if (!isdigit(*remainingTokens) || *remainingTokens == '-') {
+    if (!isdigit(*remainingTokens) && *remainingTokens != '-') {
         PARSER_ERR("expected a digit for the immediate, found: %s", converted,
                    remainingTokens - converted, remainingTokens);
     }
@@ -1087,7 +1121,7 @@ static void parseBeq(struct inst *inst, char *converted,
                                  remainingTokens - converted);
     ++remainingTokens;
 
-    if (!isdigit(*remainingTokens) || *remainingTokens == '-') {
+    if (!isdigit(*remainingTokens) && *remainingTokens != '-') {
         PARSER_ERR("expected a digit for the immediate, found: %s", converted,
                    remainingTokens - converted, remainingTokens);
     }
@@ -1106,7 +1140,7 @@ static void parseLwSw(struct inst *inst, char *converted,
                                  remainingTokens - converted);
     ++remainingTokens;
 
-    if (!isdigit(*remainingTokens)) {
+    if (!isdigit(*remainingTokens) && *remainingTokens != '-') {
         PARSER_ERR("expected a digit for the immediate, found: %s", converted,
                    remainingTokens - converted, strtok(remainingTokens, " "));
     }
@@ -1159,7 +1193,8 @@ static void parserErr(const char *function, int line, const char *msg,
     fprintf(stderr, "\n%s\n", inst);
 
     if (col > 0) {
-        for (int i = 0; i < col; ++i) fprintf(stderr, " ");
+        int i;
+        for (i = 0; i < col; ++i) fprintf(stderr, " ");
         fprintf(stderr, "^\n");
     }
 
@@ -1260,7 +1295,7 @@ static void validateAddiBeq(const char *instruction) {
                    instruction, 0);
     }
 
-    if (!isdigit(*(cur + 1))) {
+    if (!isdigit(*(cur + 1)) && *(cur + 1) != '-') {
         PARSER_ERR("malformed number for the immediate/offset", instruction,
                    cur + 1 - instruction);
     }
@@ -1294,7 +1329,7 @@ static void validateLwSw(const char *instruction) {
                    instruction, 0);
     }
 
-    if (!isdigit(*(cur + 1))) {
+    if (!isdigit(*(cur + 1)) && *(cur + 1) != '-') {
         PARSER_ERR("malformed number for the offset", instruction,
                    cur + 1 - instruction);
     }
