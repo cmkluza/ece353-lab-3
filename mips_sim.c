@@ -22,6 +22,36 @@
 #define PARSER_ERR(msg, inst, col, ...) parserErr(__FUNCTION__, __LINE__, msg, \
     inst, col, ##__VA_ARGS__)
 
+void Strcpy(char *dest, char *src) {
+    while (*src != '\0') *(dest++) = *(src++);
+    *dest = '\0';
+}
+
+void Strcat(char *dest, char *src) {
+    Strcpy(dest + strlen(dest), src);
+}
+
+char *Strchr(const char *str, char c) {
+    while (*str != '\0' && *str != c) ++str;
+    if (*str == c) return (char *) str;
+    return NULL;
+}
+
+// very simple implementation of Strstr
+char *Strstr(const char *haystack, const char *needle) {
+    haystack = Strchr(haystack, needle[0]);
+    if (haystack == NULL) return (char *) haystack;
+
+    if (strlen(haystack) < strlen(needle)) return NULL;
+
+    int i;
+    for (i = 0; needle[i] != '\0'; ++i) {
+        if (needle[i] != haystack[i]) break;
+    }
+    if (needle[i] == '\0') return (char *) haystack;
+    return Strstr(haystack, needle);
+}
+
 /* ============================ Structs and Enums =========================== */
 /**
  * Represents an instruction operation.
@@ -335,27 +365,26 @@ int main(int argc, char *argv[]) {
 
 /* ======================== Function Implementations ======================== */
 char *progScanner(FILE *inputFile, char *inputLine){
-    char buffer[100];
-    fgets(buffer, 100, inputFile);
+    fgets(inputLine, 100, inputFile);
 
-    if (*buffer == '\n') return "\n"; // blank liness
+    if (*inputLine == '\n') return "\n"; // blank liness
 
     // if the instruction is sw/lw, this validates parens by the offset
-    validateParens(buffer);
+    validateParens(inputLine);
 
-//    char *givenLine;
-//    givenLine = (char*)malloc(100*sizeof(char ));
-//    strcpy(givenLine, buffer); //strtok is destructive so im using a copy instead
+    char *givenLine;
+    givenLine = (char*)malloc(100*sizeof(char ));
+    Strcpy(givenLine, inputLine); //strtok is destructive so im using a copy instead
 
     int i;
     char delimiters[]={"," "(" ")" ";" "\n" " "};
     char ** instructionFields;
 
     instructionFields = (char **)malloc(100*sizeof(char *));
-    for (i=0; i<4; i++)
-        *(instructionFields+i) = (char *) malloc(20*sizeof(char *));
+//    for (i=0; i<4; i++)
+  //      *(instructionFields+i) = (char *) malloc(20*sizeof(char));
 
-    instructionFields[0] = strtok(buffer, delimiters);
+    instructionFields[0] = strtok(inputLine, delimiters);
 
     if(strcmp(instructionFields[0],"haltSimulation")== 0)
     {
@@ -373,13 +402,13 @@ char *progScanner(FILE *inputFile, char *inputLine){
     }
 
     char *result = malloc(100*sizeof(char *));
-    strcpy(result, instructionFields[0]);
-    strcat(result, " ");
+    Strcpy(result, instructionFields[0]);
+    Strcat(result, " ");
 
     for (i = 1; i < 4; ++i) {
         if (instructionFields[i] != NULL)
-            strcat(result, instructionFields[i]);
-        if (i != 3) strcat(result, " ");
+            Strcat(result, instructionFields[i]);
+        if (i != 3) Strcat(result, " ");
     }
 
 //    strcat(result, instructionFields[1]);
@@ -388,6 +417,14 @@ char *progScanner(FILE *inputFile, char *inputLine){
 //    strcat(result, " ");
 //    strcat(result, instructionFields[3]);
 
+    // free memory we're done with
+    free(givenLine);
+   // for (i = 0; i < 4; ++i) {
+     //   if (*(instructionFields + i)) {}
+   //         free(*(instructionFields + i));
+   // }
+    free(instructionFields);
+
     return result;
 }
 
@@ -395,10 +432,9 @@ char *regNumberConverter(char *instruction) {
     // local copies of data to prevent modification of external data
     char *copy = malloc(strlen(instruction) + 1);
     char *base = copy;
-    strcpy(copy, instruction);
+    Strcpy(copy, instruction);
 
     if (*base == '#') {
-        printf("caught comment\n");
         return copy;
     }
 
@@ -415,7 +451,7 @@ char *regNumberConverter(char *instruction) {
             char *regNum = getRegNumber(curToken, base, instruction);
             // add the result into the buffer
             len = strlen(regNum);
-            strncpy(buffer + bufferPointer, regNum, len);
+            Strcpy(buffer + bufferPointer, regNum);
             bufferPointer += len;
             buffer[bufferPointer++] = ' ';
             // we don't need regNum anymore
@@ -427,7 +463,7 @@ char *regNumberConverter(char *instruction) {
                 PARSER_ERR("invalid instruction", copy, 0);
             }
             // copy the token into buffer and add the space afterwards
-            strncpy(buffer + bufferPointer, curToken, len);
+            Strcpy(buffer + bufferPointer, curToken);
             bufferPointer += len;
             buffer[bufferPointer++] = ' ';
         }
@@ -460,9 +496,9 @@ struct inst parser(char *instruction) {
 
     // set the instruction type and parse appropriately
     if (inst.type == R_TYPE) {
-        parseRType(&inst, converted, strchr(converted, ' ') + 1);
+        parseRType(&inst, converted, Strchr(converted, ' ') + 1);
     } else if (inst.type == I_TYPE) {
-        parseIType(&inst, converted, strchr(converted, ' ') + 1);
+        parseIType(&inst, converted, Strchr(converted, ' ') + 1);
     } else {
         // halt instruction, no further processing needed
         free(converted);
@@ -805,17 +841,17 @@ static void validateParens(const char *instruction) {
         (*(instruction + 2) != ' ' && *(instruction + 2) != '\0')) return;
 
     // if there's a comment with parentheses, don't want to count those
-    char *comment = strchr(instruction, '#');
+    char *comment = Strchr(instruction, '#');
     char *temp;
 
     // find the first parenthesis
-    char *result = strchr(instruction, '(');
+    char *result = Strchr(instruction, '(');
 
     if (result == NULL || (comment && result > comment)) { // no opening parenthesis
         PARSER_ERR("malformed load/store - no opening parenthesis", instruction, 0);
     }
     // there should be no additional opening parentheses
-    if ((temp = strchr(result + 1, '(')) != NULL &&
+    if ((temp = Strchr(result + 1, '(')) != NULL &&
         (!comment || temp < comment)) {
         PARSER_ERR("malformed load/store - extra opening parentheses",
                 instruction, temp - instruction);
@@ -828,14 +864,14 @@ static void validateParens(const char *instruction) {
     }
 
     // now look for closing parenthesis
-    if ((result = strchr(instruction, ')')) == NULL ||
+    if ((result = Strchr(instruction, ')')) == NULL ||
             (comment && result > comment)) {
         // no closing paren
         PARSER_ERR("malformed load/store - no closing parenthesis", instruction, 0);
     }
 
     // there should be no additional closing parentheses
-    if ((temp = strchr(result + 1, ')')) != NULL &&
+    if ((temp = Strchr(result + 1, ')')) != NULL &&
             (!comment || temp < comment)) {
         PARSER_ERR("malformed load/store - extra closing parentheses",
                    instruction, temp - instruction);
@@ -846,17 +882,21 @@ static void validateParens(const char *instruction) {
 static char *getRegNumber(char *token, char *base, char *original) {
     ++token; // skip the "$"
     char *result = malloc(3); // largest register number is 2 digits
+    result[0] = '\0'; result[1] = '\0'; result[2] = '\0';
     // is it a numerical register?
     if (isdigit(*token)) {
         // no processing necessary
-        sprintf(result, "%s", token);
+        Strcpy(result, token);
+        return result;
+//        sprintf(result, "%s", token);
     } else {
         // need to convert register name to number
         switch (*token) {
             case 'z': // "zero"
                 if (*(token + 1) == 'e' && *(token + 2) == 'r' &&
                     *(token + 3) == 'o' && *(token + 4) == '\0') {
-                    sprintf(result, "%d", 0);
+                Strcpy(result, "0");
+                    //sprintf(result, "%d", 0);
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
                                token - base, token);
@@ -865,10 +905,12 @@ static char *getRegNumber(char *token, char *base, char *original) {
             case 'a': // "at" or "a0-a3"
                 ++token;
                 if (*token == 't' && *(token + 1) == '\0') {// "at"
-                    sprintf(result, "%d", 1);
+                    Strcpy(result, "1");
+                    //sprintf(result, "%d", 1);
                 } else if ('0' <= *token && *token <= '3'
                            && *(token + 1) == '\0') { // "a0-a3"
-                    sprintf(result, "%d", 4 + (*token - '0'));
+                    result[0] = '4' + (*token - '0');
+                    //sprintf(result, "%d", 4 + (*token - '0'));
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
                                token - base - 1, token - 1);
@@ -878,7 +920,8 @@ static char *getRegNumber(char *token, char *base, char *original) {
                 ++token;
                 if ('0' <= *token && *token <= '1'
                     && *(token + 1) == '\0') {
-                    sprintf(result, "%d", 2 + (*token - '0'));
+                    result[0] = '2' + (*token - '0');
+                    //sprintf(result, "%d", 2 + (*token - '0'));
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
                                token - base - 1, token - 1);
@@ -888,10 +931,18 @@ static char *getRegNumber(char *token, char *base, char *original) {
                 ++token;
                 if ('8' <= *token && *token <= '9'
                     && *(token + 1) == '\0') { // "t8-t9"
-                    sprintf(result, "%d", 16 + (*token - '0'));
+                    result[0] = '2';
+                    result[1] = '4' + (*token - '8');
+                    //sprintf(result, "%d", 16 + (*token - '0'));
                 } else if ('0' <= *token && *token <= '7'
                            && *(token + 1) == '\0') { // "t0-t7"
-                    sprintf(result, "%d", 8 + (*token - '0'));
+                    if (*token <= '1') {
+                        result[0] = '8' + (*token - '0');
+                    } else {
+                        result[0] = '1';
+                        result[1] = *token - 2;
+                    }
+                    //sprintf(result, "%d", 8 + (*token - '0'));
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
                                token - base - 1, token - 1);
@@ -900,10 +951,19 @@ static char *getRegNumber(char *token, char *base, char *original) {
             case 's': // "s0-s7" or "sp"
                 ++token;
                 if (*token == 'p' && *(token + 1) == '\0') { // "sp"
-                    sprintf(result, "%d", 29);
+                    result[0] = '2';
+                    result[1] = '9';
+                    //sprintf(result, "%d", 29);
                 } else if ('0' <= *token && *token <= '7'
                            && *(token + 1) == '\0') { // "s0-s7"
-                    sprintf(result, "%d", 16 + (*token - '0'));
+                    if (*token <= '3') {
+                        result[0] = '1';
+                        result[1] = '6' + (*token - '0');
+                    } else {
+                        result[0] = '2';
+                        result[1] = *token - 4;
+                    }
+                    //sprintf(result, "%d", 16 + (*token - '0'));
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
                                token - base - 1, token - 1);
@@ -913,7 +973,9 @@ static char *getRegNumber(char *token, char *base, char *original) {
                 ++token;
                 if ('0' <= *token && *token <= '1'
                     && *(token + 1) == '\0') {
-                    sprintf(result, "%d", 26 + (*token - '0'));
+                    result[0] = '2';
+                    result[1] = '6' + (*token - '0');
+                    //sprintf(result, "%d", 26 + (*token - '0'));
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
                                token - base - 1, token - 1);
@@ -921,7 +983,9 @@ static char *getRegNumber(char *token, char *base, char *original) {
                 break;
             case 'g': // "gp"
                 if (*(token + 1) == 'p' && *(token + 2) == '\0') {
-                    sprintf(result, "%d", 28);
+                    result[0] = '2';
+                    result[1] = '8';
+                    //sprintf(result, "%d", 28);
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
                                token - base - 1, token - 1);
@@ -929,7 +993,9 @@ static char *getRegNumber(char *token, char *base, char *original) {
                 break;
             case 'f': // "fp"
                 if (*(token + 1) == 'p' && *(token + 2) == '\0') {
-                    sprintf(result, "%d", 30);
+                    result[0] = '3';
+                    result[1] = '0';
+                    //sprintf(result, "%d", 30);
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
                                token - base, token);
@@ -937,7 +1003,9 @@ static char *getRegNumber(char *token, char *base, char *original) {
                 break;
             case 'r': // "ra"
                 if (*(token + 1) == 'a' && *(token + 2) == '\0') {
-                    sprintf(result, "%d", 31);
+                    result[0] = '3';
+                    result[1] = '1';
+                    //sprintf(result, "%d", 31);
                 } else {
                     PARSER_ERR("invalid register number: %s", original,
                                token - base, token);
@@ -956,7 +1024,7 @@ static char *getRegNumber(char *token, char *base, char *original) {
 static enum inst_op getOp(char *instruction) {
     switch (*instruction) {
         case 'h': // "haltSimulation"
-            if (strstr(instruction, "haltSimulation") == NULL) {
+            if (Strstr(instruction, "haltSimulation") == NULL) {
                 return ERR;
             } else {
                 return HALT;
@@ -999,7 +1067,7 @@ static enum inst_op getOp(char *instruction) {
                 return SW;
             }
             if (*(instruction + 1) == 'u' && *(instruction + 2) == 'b'
-                && *(instruction + 3) == ' ' || *(instruction + 3) == '\0') {
+                && (*(instruction + 3) == ' ' || *(instruction + 3) == '\0')) {
                 return SUB;
             }
             return ERR;
@@ -1212,7 +1280,7 @@ static void validate(const char *instruction, enum inst_op op,
 // validates R-Type instructions of the form (op register register register)
 static void validateRType(const char *instruction) {
     // op_name has already been validated, skip it
-    char *cur = strchr(instruction, ' ');
+    char *cur = Strchr(instruction, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing rd, rs, and rt",
                    instruction, 0);
@@ -1224,7 +1292,7 @@ static void validateRType(const char *instruction) {
                    cur + 1 - instruction);
     }
 
-    cur = strchr(cur + 1, ' ');
+    cur = Strchr(cur + 1, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing rs and rt",
                    instruction, 0);
@@ -1235,7 +1303,7 @@ static void validateRType(const char *instruction) {
                    cur + 1 - instruction);
     }
 
-    cur = strchr(cur + 1, ' ');
+    cur = Strchr(cur + 1, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing rt", instruction,
                    0);
@@ -1247,7 +1315,7 @@ static void validateRType(const char *instruction) {
     }
 
     // check for lingering tokens after the entire instruction is validated
-    cur = strchr(cur + 1, ' ');
+    cur = Strchr(cur + 1, ' ');
     while (cur && isspace(*(cur))) ++cur;
     if (cur && *cur != '\0') {
         PARSER_ERR("malformed instruction, unexpected tokens: %s",
@@ -1267,7 +1335,7 @@ static void validateIType(const char *instruction, enum inst_op op) {
 // validates addi and beq, of the form (op register register imm/offset)
 static void validateAddiBeq(const char *instruction) {
     // op_name has already been validated, skip it
-    char *cur = strchr(instruction, ' ');
+    char *cur = Strchr(instruction, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing rd/rt, rs, "
                    "and immediate/offset", instruction, 0);
@@ -1278,7 +1346,7 @@ static void validateAddiBeq(const char *instruction) {
                    cur + 1 - instruction);
     }
 
-    cur = strchr(cur + 1, ' ');
+    cur = Strchr(cur + 1, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing rs and "
                    "immediate/offset", instruction, 0);
@@ -1289,7 +1357,7 @@ static void validateAddiBeq(const char *instruction) {
                    cur + 1 - instruction);
     }
 
-    cur = strchr(cur + 1, ' ');
+    cur = Strchr(cur + 1, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing immediate/offset",
                    instruction, 0);
@@ -1301,7 +1369,7 @@ static void validateAddiBeq(const char *instruction) {
     }
 
     // check for lingering tokens after the entire instruction is validated
-    cur = strchr(cur + 1, ' ');
+    cur = Strchr(cur + 1, ' ');
     while (cur && isspace(*(cur))) ++cur;
     if (cur && *cur != '\0') {
         PARSER_ERR("malformed instruction, unexpected tokens: %s",
@@ -1312,7 +1380,7 @@ static void validateAddiBeq(const char *instruction) {
 // validates lw/sw of the form (op register offset register)
 static void validateLwSw(const char *instruction) {
     // op_name has already been validated, skip it
-    char *cur = strchr(instruction, ' ');
+    char *cur = Strchr(instruction, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing rt, offset, "
                    "and rs", instruction, 0);
@@ -1323,7 +1391,7 @@ static void validateLwSw(const char *instruction) {
                    cur + 1 - instruction);
     }
 
-    cur = strchr(cur + 1, ' ');
+    cur = Strchr(cur + 1, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing offset and rs",
                    instruction, 0);
@@ -1334,7 +1402,7 @@ static void validateLwSw(const char *instruction) {
                    cur + 1 - instruction);
     }
 
-    cur = strchr(cur + 1, ' ');
+    cur = Strchr(cur + 1, ' ');
     if (!cur) {
         PARSER_ERR("too few arguments to instruction: missing rs",
                    instruction, 0);
@@ -1346,7 +1414,7 @@ static void validateLwSw(const char *instruction) {
     }
 
     // check for lingering tokens after the entire instruction is validated
-    cur = strchr(cur + 1, ' ');
+    cur = Strchr(cur + 1, ' ');
     while (cur && isspace(*(cur))) ++cur;
     if (cur && *cur != '\0') {
         PARSER_ERR("malformed instruction, unexpected tokens: %s",
