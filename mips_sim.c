@@ -22,6 +22,10 @@
 #define PARSER_ERR(msg, inst, col, ...) parserErr(__FUNCTION__, __LINE__, msg, \
     inst, col, ##__VA_ARGS__)
 
+/**
+ * There were errors with the submission environment's string functions
+ * so these simple implementations are used to get around that.
+ */
 void Strcpy(char *dest, char *src) {
     while (*src != '\0') *(dest++) = *(src++);
     *dest = '\0';
@@ -382,7 +386,7 @@ char *progScanner(FILE *inputFile, char *inputLine){
 
     instructionFields = (char **)malloc(100*sizeof(char *));
 //    for (i=0; i<4; i++)
-  //      *(instructionFields+i) = (char *) malloc(20*sizeof(char));
+//      *(instructionFields+i) = (char *) malloc(20*sizeof(char));
 
     instructionFields[0] = strtok(inputLine, delimiters);
 
@@ -419,10 +423,6 @@ char *progScanner(FILE *inputFile, char *inputLine){
 
     // free memory we're done with
     free(givenLine);
-   // for (i = 0; i < 4; ++i) {
-     //   if (*(instructionFields + i)) {}
-   //         free(*(instructionFields + i));
-   // }
     free(instructionFields);
 
     return result;
