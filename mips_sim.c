@@ -335,6 +335,9 @@ int main(int argc, char *argv[]) {
         sim_cycle += 1;
     }
 
+    // halt simulation will add an additional cycle, so remove that
+    --sim_cycle;
+
     // calculate utilization of each stage
     double ifUtil = (double) IF_WorkCycles / sim_cycle;
     double idUtil = (double) ID_WorkCycles / sim_cycle;
@@ -353,6 +356,7 @@ int main(int argc, char *argv[]) {
             fprintf(output, "%d  ", Registers[i]);
         }
         fprintf(output, "%ld\n", PC);
+        fprintf(output, "total CPU cycles: %ld\n", sim_cycle);
     }
 
     // TODO - figure out what this is supposed to say if it's even supposed to be here
@@ -516,11 +520,10 @@ void IF() {
     curr_inst= IM[PC >> 2];                                       // create local copy of the instruction to be executed
 
     if (IF_ID_Flag==0){                                           // check if latch is empty
-//        if (curr_inst.op==HALT){
-//            IF_ID_latch= curr_inst;                               // send the halt instruction to the next stage
-//            IF_ID_Flag=1;
-//        }
-        if (IF_Inst_Cycles>=c){
+        if (curr_inst.op==HALT){
+            IF_ID_latch= curr_inst;                               // send the halt instruction to the next stage
+            IF_ID_Flag=1;
+        } else if (IF_Inst_Cycles>=c){
             IF_ID_latch= curr_inst;                               // send the instruction to the next stage
             PC= PC + 4;                                           // change PC to the next instruction
             IF_ID_Flag=1;                                         // set flag IF/ID latch not empty
@@ -687,7 +690,7 @@ void EX() {
     }
 
     //send instruction to MEM
-    if (EX_MEM_Flag==0 &&
+    if (EX_MEM_Flag==0 && (ID_EX_latch.op == HALT) ||
         ((ID_EX_latch.op == MUL && EX_Inst_Cycles >= m) ||
          (ID_EX_latch.op != MUL && EX_Inst_Cycles >= n))) {
         EX_MEM_latch=ID_EX_latch; // move data into the next stage
